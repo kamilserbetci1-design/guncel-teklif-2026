@@ -147,12 +147,12 @@ export default function ProductLoader() {
       );
 
       const collapsedByName = new Map<string, (typeof state.packages)[number]>();
-      for (const p of currentById.values()) {
+      Array.from(currentById.values()).forEach((p) => {
         const nameKey = (p.name || '').trim().toLowerCase();
         const prev = collapsedByName.get(nameKey);
         if (!prev) {
           collapsedByName.set(nameKey, p);
-          continue;
+          return;
         }
         const keepNew = (p.items?.length || 0) >= (prev.items?.length || 0);
         if (keepNew) {
@@ -161,9 +161,9 @@ export default function ProductLoader() {
         } else {
           deleted.add(String(p.id));
         }
-      }
+      });
       currentById.clear();
-      for (const p of collapsedByName.values()) currentById.set(String(p.id), p);
+      Array.from(collapsedByName.values()).forEach((p) => currentById.set(String(p.id), p));
 
       const seenNames = new Set(collapsedByName.keys());
 
