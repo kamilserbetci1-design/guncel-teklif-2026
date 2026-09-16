@@ -4,7 +4,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { getBrand } from '@/lib/brands';
-import { formatCurrency, getCurrencySymbol, numberToText, generateProposalNo, getTodayDate, getValidityDate, getValidityText, fetchExchangeRates, toTry, rateToTry, normalizeCurrency, lockedRatesFromProposal } from '@/lib/helpers';
+import { formatCurrency, getCurrencySymbol, numberToText, generateProposalNo, getTodayDate, getValidityDate, getValidityText, fetchExchangeRates, toTry, rateToTry, normalizeCurrency, lockedRatesFromProposal, fetchQuoteRates } from '@/lib/helpers';
 import type { ProposalItem, Proposal, PackageTemplate, PackageItem, PaymentType } from '@/lib/types';
 import { PAYMENT_TYPES } from '@/lib/types';
 import { downloadProposalExcel } from '@/lib/proposal-excel';
@@ -31,9 +31,9 @@ export default function YeniTeklifPage() {
   const printRef = useRef<HTMLDivElement>(null);
 
   // Editable exchange rate (TCMB'den gelir, kullanıcı değiştirebilir)
-  const [eurRate, setEurRate] = useState(rates.eur || 53.5);
-  const [usdRate, setUsdRate] = useState(rates.usd || 46.8);
-  const [gbpRate, setGbpRate] = useState(rates.gbp || 62.5);
+  const [eurRate, setEurRate] = useState(editId ? 0 : (rates.eur || 53.5));
+  const [usdRate, setUsdRate] = useState(editId ? 0 : (rates.usd || 46.8));
+  const [gbpRate, setGbpRate] = useState(editId ? 0 : (rates.gbp || 62.5));
 
   // Yeni teklifte canlı kur; kayıtlı teklifte o günkü kur kilitli kalır
   useEffect(() => {
@@ -156,7 +156,9 @@ export default function YeniTeklifPage() {
 
   // Load existing proposal for editing
   useEffect(() => {
-    if (editingProposal && !isLoaded) {
+    if (!editingProposal || isLoaded) return;
+    let cancelled = false;
+    (async () => {
       setProposalNo(editingProposal.proposal_no);
       setProposalDate(editingProposal.proposal_date);
       setProjectName(editingProposal.project_name);
@@ -180,13 +182,42 @@ export default function YeniTeklifPage() {
       setPaymentType(editingProposal.payment_type || '');
       if (editingProposal.custom_header_name) setCustomHeaderName(editingProposal.custom_header_name);
       if (editingProposal.custom_header_logo) setCustomHeaderLogo(editingProposal.custom_header_logo);
-      const locked = lockedRatesFromProposal(editingProposal, { usd: usdRate, eur: eurRate, gbp: gbpRate });
-      setEurRate(locked.eur);
-      setUsdRate(locked.usd);
-      setGbpRate(locked.gbp);
+
+      let locked = lockedRatesFromProposal(editingProposal, { usd: 0, eur: 0, gbp: 0 });
+      const needsDateRate =
+        (editingProposal.currency === 'EUR' && !(locked.eur > 0)) ||
+        (editingProposal.currency === 'USD' && !(locked.usd > 0)) ||
+        (editingProposal.currency === 'GBP' && !(locked.gbp > 0)) ||
+        (editingProposal.currency === 'TRY' && !(locked.eur > 0 && locked.usd > 0));
+      if (needsDateRate || !(locked.eur > 0 && locked.usd > 0 && locked.gbp > 0)) {
+        try {
+          const hist = await fetchQuoteRates(editingProposal.proposal_date);
+          locked = {
+            eur: locked.eur > 0 ? locked.eur : hist.eur,
+            usd: locked.usd > 0 ? locked.usd : hist.usd,
+            gbp: locked.gbp > 0 ? locked.gbp : hist.gbp,
+          };
+        } catch { /* tarihi kur yoksa satır kuru kalır */ }
+      }
+      if (cancelled) return;
+      if (locked.eur > 0) setEurRate(locked.eur);
+      if (locked.usd > 0) setUsdRate(locked.usd);
+      if (locked.gbp > 0) setGbpRate(locked.gbp);
       setIsLoaded(true);
-    }
-  }, [editingProposal, isLoaded]);
+      if (
+        editingProposal.id &&
+        (!editingProposal.fx_eur || !editingProposal.fx_usd || !editingProposal.fx_gbp) &&
+        locked.eur > 0
+      ) {
+        updateProposal(editingProposal.id, {
+          fx_eur: locked.eur,
+          fx_usd: locked.usd,
+          fx_gbp: locked.gbp,
+        });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [editingProposal, isLoaded, updateProposal]);
 
   useEffect(() => {
     if (brandId !== 'markasiz' || editingProposal) return;
@@ -673,10 +704,9 @@ export default function YeniTeklifPage() {
 
   const convertCurrency = (amount: number) => {
     if (currency === 'TRY') return amount;
-    if (currency === 'USD') return amount / usdRate;
-    if (currency === 'EUR') return amount / eurRate;
-    if (currency === 'GBP') return amount / gbpRate;
-    return amount;
+    const rate = currency === 'USD' ? usdRate : currency === 'EUR' ? eurRate : currency === 'GBP' ? gbpRate : 0;
+    if (!rate || rate <= 0) return 0;
+    return amount / rate;
   };
 
   const fromDisplayToTRY = (amount: number) => {

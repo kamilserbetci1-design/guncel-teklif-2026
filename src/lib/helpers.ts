@@ -41,26 +41,48 @@ const medianRate = (values: number[]) => {
   return sorted[Math.floor(sorted.length / 2)];
 };
 
-/** Kayıtlı teklifin o günkü kuru; yoksa satırlardaki exchange_rate. */
+/** Kayıtlı teklifin o günkü kuru; yoksa satırdaki exchange_rate veya source_price oranı. */
 export const lockedRatesFromProposal = (
   p: {
     fx_eur?: number;
     fx_usd?: number;
     fx_gbp?: number;
-    items?: { type?: string; input_currency?: string; exchange_rate?: number }[];
+    items?: {
+      type?: string;
+      input_currency?: string;
+      exchange_rate?: number;
+      price?: number;
+      source_price?: number;
+    }[];
   },
-  fallback: FxRates
+  fallback: FxRates = { usd: 0, eur: 0, gbp: 0 }
 ): FxRates => {
-  const fromItems = (cur: string) =>
-    medianRate(
-      (p.items || [])
-        .filter((i) => i.type !== 'section' && normalizeCurrency(i.input_currency) === cur && Number(i.exchange_rate) > 1)
-        .map((i) => Number(i.exchange_rate))
-    );
+  const fromItems = (cur: string) => {
+    const rows = (p.items || []).filter((i) => i.type !== 'section');
+    const byRate = rows
+      .filter((i) => normalizeCurrency(i.input_currency) === cur && Number(i.exchange_rate) > 1)
+      .map((i) => Number(i.exchange_rate));
+    const bySource = rows
+      .filter((i) => normalizeCurrency(i.input_currency) === cur && Number(i.source_price) > 0 && Number(i.price) > 0)
+      .map((i) => Number(i.price) / Number(i.source_price));
+    return medianRate(byRate) || medianRate(bySource);
+  };
   return {
     eur: Number(p.fx_eur) > 0 ? Number(p.fx_eur) : fromItems('EUR') || fallback.eur,
     usd: Number(p.fx_usd) > 0 ? Number(p.fx_usd) : fromItems('USD') || fallback.usd,
     gbp: Number(p.fx_gbp) > 0 ? Number(p.fx_gbp) : fromItems('GBP') || fallback.gbp,
+  };
+};
+
+export const fetchQuoteRates = async (dateLabel?: string): Promise<FxRates> => {
+  const q = dateLabel ? `?date=${encodeURIComponent(dateLabel)}` : '';
+  const res = await fetch(`/api/tcmb-kur${q}`);
+  if (!res.ok) throw new Error('API error');
+  const data = await res.json();
+  return {
+    usd: data.usd || 0,
+    eur: data.eur || 0,
+    gbp: data.gbp || 0,
   };
 };
 
