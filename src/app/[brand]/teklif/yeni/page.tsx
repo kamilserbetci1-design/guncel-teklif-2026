@@ -59,6 +59,7 @@ export default function YeniTeklifPage() {
 
   const brandProducts = products;
   const isBlankBrand = brandId === 'markasiz';
+  const useRedRowLines = brandId === 'guclumutfak' || brandId === 'inoks';
   const brandCustomers = customers.filter((c) => c.brand_id === brandId);
 
   const [proposalTitle, setProposalTitle] = useState('FİYAT TEKLİFİ');
@@ -1187,7 +1188,7 @@ export default function YeniTeklifPage() {
                   const netLineTotal = item.total;
                   const isHidden = globalHidePrices || item.hide_price;
                   return (
-                    <tr key={item.id} className={item.shipped ? 'line-through opacity-50' : ''} style={{ borderBottom: `1px solid ${brand.tableBorderHex}`, backgroundColor: idx % 2 === 1 ? brand.tableStripeBgHex : '#ffffff', pageBreakInside: 'avoid' }}>
+                    <tr key={item.id} className={item.shipped ? 'line-through opacity-50' : ''} style={{ borderBottom: useRedRowLines ? `1px solid ${brand.accentColor}4d` : `1px solid ${brand.tableBorderHex}`, backgroundColor: useRedRowLines ? '#ffffff' : (idx % 2 === 1 ? brand.tableStripeBgHex : '#ffffff'), pageBreakInside: 'avoid' }}>
                       <td className="py-5 px-3 text-center text-gray-500 font-medium text-sm">{pIdx}</td>
                       {!isCompactMode && (
                         <td className="py-4 px-3">
