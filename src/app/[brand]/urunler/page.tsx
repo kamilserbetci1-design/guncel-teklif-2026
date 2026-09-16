@@ -7,6 +7,7 @@ import { Search, Plus, Trash2, Edit2, X, Save, Package, FileSpreadsheet, Chevron
 import { useState, useRef, useMemo } from 'react';
 import type { Product } from '@/lib/types';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
+import { ensureWebsiteNetPrice } from '@/lib/guclu-mutfak-catalog';
 
 const ITEMS_PER_PAGE = 50;
 
@@ -14,7 +15,7 @@ export default function UrunlerPage() {
   const params = useParams();
   const brandId = params.brand as string;
   const brand = getBrand(brandId);
-  const { products, addProduct, updateProduct, removeProduct, setProducts, catalogLoading } = useAppStore();
+  const { products, addProduct, updateProduct, removeProduct, setProducts, catalogLoading, websiteCatalog } = useAppStore();
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedManufacturer, setSelectedManufacturer] = useState('');
@@ -334,6 +335,15 @@ export default function UrunlerPage() {
             {filteredProducts.length !== allBrandProducts.length && (
               <span className="text-blue-600"> • {filteredProducts.length.toLocaleString('tr-TR')} sonuç</span>
             )}
+            {websiteCatalog.loading && (
+              <span className="text-sky-600">
+                {' '}• Site: {websiteCatalog.fetched.toLocaleString('tr-TR')}
+                {websiteCatalog.total ? ` / ${websiteCatalog.total.toLocaleString('tr-TR')}` : ''} çekiliyor
+              </span>
+            )}
+            {!websiteCatalog.loading && websiteCatalog.fetched > 0 && (
+              <span className="text-sky-700"> • guclumutfak.com ürünleri mavi satırda</span>
+            )}
           </p>
         </div>
         <div className="flex gap-2">
@@ -487,7 +497,14 @@ export default function UrunlerPage() {
               </thead>
               <tbody>
                 {pagedProducts.map((p) => (
-                  <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50 transition">
+                  <tr
+                    key={p.id}
+                    className={
+                      p.origin === 'website'
+                        ? 'border-b border-sky-100 bg-sky-50 hover:bg-sky-100/80 transition'
+                        : 'border-b border-gray-100 hover:bg-gray-50 transition'
+                    }
+                  >
                     <td className="py-2 px-3">
                       <div className="w-10 h-10 rounded border bg-gray-50 overflow-hidden flex items-center justify-center flex-shrink-0">
                         {p.image ? (
@@ -498,7 +515,12 @@ export default function UrunlerPage() {
                       </div>
                     </td>
                     <td className="py-2 px-3">
-                      <div className="font-semibold text-gray-900 line-clamp-1">{p.name}</div>
+                      <div className={`font-semibold line-clamp-1 ${p.origin === 'website' ? 'text-sky-800' : 'text-gray-900'}`}>{p.name}</div>
+                      {p.origin === 'website' && (
+                        <span className="inline-block mt-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700 bg-sky-100 px-1.5 py-0.5 rounded">
+                          İnternet sitesi · guclumutfak.com
+                        </span>
+                      )}
                       {p.description && <div className="text-xs text-gray-400 line-clamp-1 max-w-md">{p.description}</div>}
                       {p.sku && <div className="text-[10px] text-gray-400 font-mono">SKU: {p.sku}</div>}
                     </td>
@@ -508,7 +530,7 @@ export default function UrunlerPage() {
                     <td className="py-2 px-3 hidden md:table-cell">
                       <span className="text-xs text-gray-500 line-clamp-1">{p.category || '-'}</span>
                     </td>
-                    <td className="py-2 px-3 text-right font-bold text-gray-900 whitespace-nowrap">₺{p.price.toLocaleString('tr-TR')}</td>
+                    <td className="py-2 px-3 text-right font-bold text-gray-900 whitespace-nowrap">₺{ensureWebsiteNetPrice(p).price.toLocaleString('tr-TR')}</td>
                     <td className="py-2 px-3 text-center">
                       <div className="flex justify-center gap-0.5">
                         <button onClick={() => handleEdit(p)} className="p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition"><Edit2 className="w-3.5 h-3.5" /></button>

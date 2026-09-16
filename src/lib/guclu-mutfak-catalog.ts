@@ -1,0 +1,265 @@
+import type { Product } from '@/lib/types';
+
+const SITEMAP_URL = 'https://guclumutfak.com/products.xml';
+const UA =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+
+type SitemapCache = { at: number; urls: string[] };
+let sitemapCache: SitemapCache | null = null;
+const productCache = new Map<string, Product>();
+
+const asRecord = (v: unknown): Record<string, unknown> | null =>
+  v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
+
+const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : v == null ? [] : [v]);
+
+const text = (v: unknown): string => {
+  if (v == null) return '';
+  if (typeof v === 'string' || typeof v === 'number') return String(v).trim();
+  const rec = asRecord(v);
+  if (rec?.name) return text(rec.name);
+  return '';
+};
+
+const parseScripts = (html: string): unknown[] => {
+  const out: unknown[] = [];
+  const re = /<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) {
+    try {
+      out.push(JSON.parse(m[1]));
+    } catch {
+      /* ignore broken blocks */
+    }
+  }
+  return out;
+};
+
+const flattenLd = (node: unknown, acc: Record<string, unknown>[] = []): Record<string, unknown>[] => {
+  const rec = asRecord(node);
+  if (rec) {
+    acc.push(rec);
+    const graph = rec['@graph'];
+    if (Array.isArray(graph)) graph.forEach((g) => flattenLd(g, acc));
+  } else if (Array.isArray(node)) {
+    node.forEach((g) => flattenLd(g, acc));
+  }
+  return acc;
+};
+
+const typeOf = (rec: Record<string, unknown>) =>
+  asArray(rec['@type'])
+    .map((t) => String(t).toLowerCase())
+    .join(' ');
+
+/** Site fiyatı KDV dahil; teklifte alta KDV eklendiği için %20 düşülür. */
+export const websiteNetPrice = (gross: number) => {
+  const n = Number(gross);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.round((n / 1.2) * 100) / 100;
+};
+
+export function ensureWebsiteNetPrice(p: Product): Product {
+  if (p.origin !== 'website' || p.vat_included === false) return p;
+  return { ...p, price: websiteNetPrice(p.price), vat_included: false };
+}
+
+export function mapWebsiteProduct(html: string, url: string): Product | null {
+  const nodes = parseScripts(html).flatMap((n) => flattenLd(n));
+  const product = nodes.find((n) => typeOf(n).includes('product'));
+  if (!product) return null;
+
+  const name = text(product.name);
+  if (!name) return null;
+
+  const offers = asArray(product.offers).map(asRecord).filter(Boolean) as Record<string, unknown>[];
+  const offer = offers[0] || {};
+  const price = Number(String(offer.price ?? product.price ?? '0').replace(',', '.')) || 0;
+  const currency = (text(offer.priceCurrency) || 'TRY').toUpperCase();
+  const sku = text(product.sku) || text(product.mpn);
+  const productId = text(product.productId) || text(product.sku);
+  const images = asArray(product.image)
+    .map((img) => {
+      if (typeof img === 'string') return img;
+      const r = asRecord(img);
+      return text(r?.url || r?.contentUrl);
+    })
+    .filter(Boolean);
+  const brandName = text(product.brand);
+  const breadcrumb = nodes.find((n) => typeOf(n).includes('breadcrumb'));
+  const crumbs = asArray(breadcrumb?.itemListElement)
+    .map(asRecord)
+    .filter(Boolean) as Record<string, unknown>[];
+  const crumbNames = crumbs
+    .sort((a, b) => Number(a.position || 0) - Number(b.position || 0))
+    .map((c) => text(c.name))
+    .filter((n) => n && !/güçlü mutfak/i.test(n) && n !== name);
+  const category = crumbNames.slice(-2).join(' > ') || crumbNames.join(' > ');
+
+  return {
+    id: `web-gm-${productId || sku || url.split('/').pop() || name}`.slice(0, 80),
+    brand_id: 'guclumutfak',
+    name,
+    description: text(product.description),
+    price: websiteNetPrice(price),
+    cost: 0,
+    image: images[0] || '',
+    product_link: url.replace('http://', 'https://'),
+    category,
+    currency,
+    manufacturer: brandName || undefined,
+    sku: sku || undefined,
+    origin: 'website',
+    vat_included: false,
+  };
+}
+
+export async function getProductSitemapUrls(): Promise<string[]> {
+  if (sitemapCache && Date.now() - sitemapCache.at < 1000 * 60 * 60) {
+    return sitemapCache.urls;
+  }
+  const res = await fetch(SITEMAP_URL, {
+    headers: { 'user-agent': UA, accept: 'application/xml,text/xml,*/*' },
+    next: { revalidate: 3600 },
+  });
+  if (!res.ok) throw new Error(`Sitemap alınamadı (${res.status})`);
+  const xml = await res.text();
+  const urls = Array.from(xml.matchAll(/<loc>\s*([^<]+)\s*<\/loc>/g))
+    .map((m) => m[1].trim())
+    .filter((u) => /^https?:\/\/(www\.)?guclumutfak\.com\//i.test(u));
+  sitemapCache = { at: Date.now(), urls };
+  return urls;
+}
+
+async function fetchProductPage(url: string): Promise<Product | null> {
+  const cached = productCache.get(url);
+  if (cached) {
+    const fixed = ensureWebsiteNetPrice(cached);
+    if (fixed.price !== cached.price || fixed.vat_included !== cached.vat_included) {
+      productCache.set(url, fixed);
+    }
+    return fixed;
+  }
+  const res = await fetch(url, {
+    headers: {
+      'user-agent': UA,
+      accept: 'text/html,application/xhtml+xml',
+    },
+    cache: 'no-store',
+  });
+  if (!res.ok) return null;
+  const html = await res.text();
+  const product = mapWebsiteProduct(html, url);
+  if (product) productCache.set(url, product);
+  return product;
+}
+
+async function mapPool<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length);
+  let i = 0;
+  const worker = async () => {
+    while (i < items.length) {
+      const idx = i++;
+      out[idx] = await fn(items[idx]);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+export async function fetchWebsiteProductPage(page: number, pageSize: number) {
+  const urls = await getProductSitemapUrls();
+  const total = urls.length;
+  const start = Math.max(0, (page - 1) * pageSize);
+  const slice = urls.slice(start, start + pageSize);
+  const rows = await mapPool(slice, 8, fetchProductPage);
+  const products = rows.filter((p): p is Product => Boolean(p)).map(ensureWebsiteNetPrice);
+  return {
+    products,
+    page,
+    pageSize,
+    total,
+    fetched: start + slice.length,
+    hasMore: start + slice.length < total,
+    cached: productCache.size,
+  };
+}
+
+const slugify = (value: string) =>
+  value
+    .toLocaleLowerCase('tr-TR')
+    .replace(/ı/g, 'i')
+    .replace(/ğ/g, 'g')
+    .replace(/ü/g, 'u')
+    .replace(/ş/g, 's')
+    .replace(/ö/g, 'o')
+    .replace(/ç/g, 'c')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+
+const queryTokens = (q: string) =>
+  slugify(q)
+    .split(/\s+/)
+    .filter((t) => t.length >= 2);
+
+const productMatchesTokens = (p: Product, tokens: string[]) => {
+  const hay = slugify([p.name, p.sku || '', p.manufacturer || '', p.category || '', p.product_link || ''].join(' '));
+  return tokens.every((t) => hay.includes(t));
+};
+
+export async function searchWebsiteProducts(query: string, limit = 24) {
+  const tokens = queryTokens(query);
+  if (!tokens.length) {
+    return { products: [] as Product[], total: 0, query };
+  }
+
+  const fromCache = Array.from(productCache.values()).filter((p) => productMatchesTokens(p, tokens));
+  const urls = await getProductSitemapUrls();
+  const matchedUrls = urls
+    .filter((url) => {
+      const slug = slugify(url);
+      return tokens.every((t) => slug.includes(t));
+    })
+    .sort((a, b) => a.length - b.length);
+
+  const cachedLinks = new Set(fromCache.map((p) => p.product_link.replace(/\/$/, '')));
+  const toFetch = matchedUrls
+    .filter((url) => !cachedLinks.has(url.replace(/\/$/, '')) && !productCache.has(url))
+    .slice(0, Math.max(0, limit - fromCache.length));
+
+  const fetched = await mapPool(toFetch, 8, fetchProductPage);
+  const extra = fetched.filter((p): p is Product => Boolean(p));
+  const extraCached = matchedUrls
+    .map((url) => productCache.get(url))
+    .filter((p): p is Product => Boolean(p));
+
+  const byId = new Map<string, Product>();
+  for (const p of [...fromCache, ...extraCached, ...extra]) {
+    if (productMatchesTokens(p, tokens)) byId.set(p.id, p);
+  }
+  const products = Array.from(byId.values()).map(ensureWebsiteNetPrice).slice(0, limit);
+  return {
+    products,
+    total: Math.max(matchedUrls.length, byId.size),
+    query,
+  };
+}
+
+export const catalogProductKey = (p: { id?: string; sku?: string; name?: string }) => {
+  const sku = (p.sku || '').trim().toLowerCase();
+  const name = (p.name || '').trim().toLowerCase();
+  return sku ? `sku:${sku}` : `name:${name}|id:${String(p.id || '')}`;
+};
+
+export function mergeRegisteredWithWebsite(registered: Product[], website: Product[]): Product[] {
+  const map = new Map<string, Product>();
+  for (const p of registered) {
+    const id = String(p.id || catalogProductKey(p));
+    map.set(id, { ...p, id, origin: p.origin === 'website' ? 'website' : p.origin || 'catalog' });
+  }
+  for (const p of website) {
+    const id = String(p.id);
+    map.set(id, ensureWebsiteNetPrice({ ...p, origin: 'website' }));
+  }
+  return Array.from(map.values());
+}

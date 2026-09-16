@@ -5,6 +5,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import type { StateStorage } from 'zustand/middleware';
 import type { Product, Customer, Proposal, PackageTemplate, ProposalItem, Order } from './types';
 import { supabase, isSupabaseConfigured } from './supabase';
+import { mergeRegisteredWithWebsite } from './guclu-mutfak-catalog';
 
 function proposalColumnFromError(message: string): string | null {
   const match =
@@ -146,6 +147,7 @@ interface AppState {
   // Products (synced with Supabase)
   products: Product[];
   catalogLoading: boolean;
+  websiteCatalog: { loading: boolean; fetched: number; total: number };
   setProducts: (products: Product[]) => void;
   addProduct: (product: Product) => Promise<void>;
   updateProduct: (id: string, data: Partial<Product>) => Promise<void>;
@@ -212,22 +214,25 @@ export const useAppStore = create<AppState>()(
 
       products: [],
       catalogLoading: true,
+      websiteCatalog: { loading: false, fetched: 0, total: 0 },
       setProducts: (products) => set({ products }),
       addProduct: async (product) => {
         set((s) => ({ products: [...s.products, product] }));
-        if (isSupabaseConfigured()) {
+        if (isSupabaseConfigured() && product.origin !== 'website') {
           (async () => { try { const { error } = await supabase.from('products').upsert(product); if (error) console.error('Supabase addProduct error:', error); } catch (e: unknown) { console.error('Supabase addProduct network error:', e); } })();
         }
       },
       updateProduct: async (id, data) => {
         set((s) => ({ products: s.products.map((p) => (p.id === id ? { ...p, ...data } : p)) }));
-        if (isSupabaseConfigured()) {
+        const current = get().products.find((p) => p.id === id);
+        if (isSupabaseConfigured() && current?.origin !== 'website' && data.origin !== 'website') {
           (async () => { try { const { error } = await supabase.from('products').update({ ...data, updated_at: new Date().toISOString() }).eq('id', id); if (error) console.error('Supabase updateProduct error:', error); } catch (e: unknown) { console.error('Supabase updateProduct network error:', e); } })();
         }
       },
       removeProduct: async (id) => {
+        const current = get().products.find((p) => p.id === id);
         set((s) => ({ products: s.products.filter((p) => p.id !== id) }));
-        if (isSupabaseConfigured()) {
+        if (isSupabaseConfigured() && current?.origin !== 'website') {
           (async () => { try { const { error } = await supabase.from('products').delete().eq('id', id); if (error) console.error('Supabase removeProduct error:', error); } catch (e: unknown) { console.error('Supabase removeProduct network error:', e); } })();
         }
       },
@@ -247,7 +252,8 @@ export const useAppStore = create<AppState>()(
             page++;
           }
           if (allProducts.length > 0) {
-            set({ products: allProducts });
+            const website = get().products.filter((p) => p.origin === 'website');
+            set({ products: mergeRegisteredWithWebsite(allProducts, website) });
           }
         } catch (e) { console.error('Supabase fetchProducts network error:', e); }
       },

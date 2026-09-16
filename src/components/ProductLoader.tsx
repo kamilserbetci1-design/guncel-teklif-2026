@@ -5,6 +5,7 @@ import { useAppStore } from '@/lib/store';
 import { fetchExchangeRates } from '@/lib/helpers';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import type { Product } from '@/lib/types';
+import { mergeRegisteredWithWebsite } from '@/lib/guclu-mutfak-catalog';
 
 const BRAND_FILES: Record<string, string> = {
   guclumutfak: '/products-guclumutfak.json',
@@ -59,7 +60,7 @@ export default function ProductLoader() {
       for (const p of jsonProducts) {
         const key = productKey(p);
         if (!uniqueByKey.has(key)) {
-          uniqueByKey.set(key, { ...p, id: String(p.id) });
+          uniqueByKey.set(key, { ...p, id: String(p.id), origin: p.origin || 'catalog' });
         }
       }
 
@@ -93,11 +94,44 @@ export default function ProductLoader() {
           const combined = new Map<string, Product>();
           for (const p of [...merged, ...dbList]) {
             const key = productKey(p);
-            if (!combined.has(key)) combined.set(key, { ...p, id: String(p.id) });
+            if (!combined.has(key)) combined.set(key, { ...p, id: String(p.id), origin: p.origin || 'catalog' });
           }
           setProducts(Array.from(combined.values()));
         }
       }
+
+      const loadWebsiteCatalog = async () => {
+        useAppStore.setState({ websiteCatalog: { loading: true, fetched: 0, total: 0 } });
+        try {
+          let page = 1;
+          let hasMore = true;
+          while (hasMore) {
+            const res = await fetch(`/api/guclu-mutfak/products?page=${page}&pageSize=12`);
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+              console.warn('guclumutfak.com ürünleri alınamadı:', data.error || res.status);
+              break;
+            }
+            const batch = Array.isArray(data.products) ? (data.products as Product[]) : [];
+            const current = useAppStore.getState().products || [];
+            setProducts(mergeRegisteredWithWebsite(current, batch));
+            const total = Number(data.total) || 0;
+            const fetched = Number(data.fetched) || page * 12;
+            useAppStore.setState({ websiteCatalog: { loading: true, fetched, total } });
+            hasMore = Boolean(data.hasMore);
+            page += 1;
+            if (page > 400) break;
+          }
+        } catch (err) {
+          console.warn('guclumutfak.com ürün çekimi durdu:', err);
+        } finally {
+          const wc = useAppStore.getState().websiteCatalog;
+          useAppStore.setState({ websiteCatalog: { ...wc, loading: false } });
+          console.log('✅ guclumutfak.com site kataloğu birleştirildi');
+        }
+      };
+
+      loadWebsiteCatalog();
     };
 
     loadProducts();

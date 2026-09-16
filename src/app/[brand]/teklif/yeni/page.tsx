@@ -16,8 +16,9 @@ import type { ImportPick } from '@/components/ListImportModal';
 import {
   Plus, Trash2, Copy, GripVertical, Eye, EyeOff, Truck, Save, FileDown,
   Printer, ArrowLeft, Search, Users, ChevronDown, RefreshCw, Package, UserCheck, AlertCircle, Boxes, X,
-  List, LayoutGrid, ImagePlus, Type, StickyNote, ChevronUp, Check, FileSpreadsheet, Upload
+  List, LayoutGrid, ImagePlus, Type, StickyNote, ChevronUp, Check, FileSpreadsheet, Upload, Globe
 } from 'lucide-react';
+import { mergeRegisteredWithWebsite, ensureWebsiteNetPrice } from '@/lib/guclu-mutfak-catalog';
 
 export default function YeniTeklifPage() {
   const params = useParams();
@@ -117,6 +118,12 @@ export default function YeniTeklifPage() {
   const [nameSuggestions, setNameSuggestions] = useState<typeof brandProducts>([]);
   const [showNameSuggestions, setShowNameSuggestions] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const [siteSearch, setSiteSearch] = useState('');
+  const [siteResults, setSiteResults] = useState<typeof brandProducts>([]);
+  const [siteSearchTotal, setSiteSearchTotal] = useState(0);
+  const [siteSearchLoading, setSiteSearchLoading] = useState(false);
+  const [showSiteSearch, setShowSiteSearch] = useState(false);
+  const siteSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Package management
   const [showPackageManager, setShowPackageManager] = useState(false);
@@ -396,14 +403,15 @@ export default function YeniTeklifPage() {
   };
 
   const addFromProduct = (p: any) => {
+    const product = ensureWebsiteNetPrice(p);
     addItem({
-      name: p.name,
+      name: product.name,
       description: '',
-      sku: p.sku || '',
-      image: p.image,
-      product_link: p.product_link,
+      sku: product.sku || '',
+      image: product.image,
+      product_link: product.product_link,
       quantity: 1,
-      ...catalogQuoteFields(p.price, p.cost || 0, p.currency),
+      ...catalogQuoteFields(product.price, product.cost || 0, product.currency),
     });
     setShowProductSearch(false);
     setProductSearch('');
@@ -414,7 +422,7 @@ export default function YeniTeklifPage() {
 
   const importListRows = (picks: ImportPick[]) => {
     const extra: ProposalItem[] = picks.map((pick, i) => {
-      const p = pick.product;
+      const p = pick.product ? ensureWebsiteNetPrice(pick.product) : pick.product;
       const fx = p
         ? catalogQuoteFields(p.price, p.cost || 0, p.currency)
         : { price: 0, cost: 0, input_currency: 'TRY' as const, exchange_rate: 1, source_price: undefined, source_cost: undefined };
@@ -459,18 +467,63 @@ export default function YeniTeklifPage() {
   };
 
   const selectSuggestion = (p: any) => {
+    const product = ensureWebsiteNetPrice(p);
     addItem({
-      name: p.name,
+      name: product.name,
       description: '',
-      sku: p.sku || '',
-      image: p.image,
-      product_link: p.product_link,
+      sku: product.sku || '',
+      image: product.image,
+      product_link: product.product_link,
       quantity: 1,
-      ...catalogQuoteFields(p.price, p.cost || 0, p.currency),
+      ...catalogQuoteFields(product.price, product.cost || 0, product.currency),
     });
     setShowNameSuggestions(false);
     setNameSuggestions([]);
+    setShowSiteSearch(false);
+    setSiteSearch('');
+    setSiteResults([]);
     setNewItem({ name: '', description: '', price: '', cost: '', quantity: '1', image: '', product_link: '' });
+  };
+
+  const runSiteSearch = useCallback(async (value: string) => {
+    const q = value.trim();
+    if (q.length < 2) {
+      setSiteResults([]);
+      setSiteSearchTotal(0);
+      setSiteSearchLoading(false);
+      return;
+    }
+    setSiteSearchLoading(true);
+    try {
+      const res = await fetch(`/api/guclu-mutfak/products?q=${encodeURIComponent(q)}`);
+      const data = await res.json().catch(() => ({}));
+      const list = Array.isArray(data.products) ? data.products : [];
+      setSiteResults(list);
+      setSiteSearchTotal(Number(data.total) || list.length);
+      if (list.length) {
+        setProducts(mergeRegisteredWithWebsite(useAppStore.getState().products || [], list));
+      }
+    } catch {
+      setSiteResults([]);
+    } finally {
+      setSiteSearchLoading(false);
+    }
+  }, [setProducts]);
+
+  const handleSiteSearchInput = (value: string) => {
+    setSiteSearch(value);
+    setShowSiteSearch(value.trim().length >= 2);
+    if (siteSearchTimer.current) clearTimeout(siteSearchTimer.current);
+    if (value.trim().length < 2) {
+      setSiteResults([]);
+      setSiteSearchTotal(0);
+      setSiteSearchLoading(false);
+      return;
+    }
+    setSiteSearchLoading(true);
+    siteSearchTimer.current = setTimeout(() => {
+      runSiteSearch(value);
+    }, 400);
   };
 
   const selectCustomer = (c: any) => {
@@ -636,16 +689,17 @@ export default function YeniTeklifPage() {
 
   const addProductToPackage = (product: any) => {
     if (!editingPackage) return;
+    const p = ensureWebsiteNetPrice(product);
     const item: PackageItem = {
       id: `pi-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      name: product.name,
+      name: p.name,
       description: '',
-      price: product.price || 0,
-      cost: product.cost || 0,
+      price: p.price || 0,
+      cost: p.cost || 0,
       quantity: 1,
-      image: product.image || '',
-      product_link: product.product_link || '',
-      currency: product.currency || 'TRY',
+      image: p.image || '',
+      product_link: p.product_link || '',
+      currency: p.currency || 'TRY',
     };
     persistEditingPackage({ ...editingPackage, items: [...editingPackage.items, item] });
     setPkgProductSearch('');
@@ -1617,7 +1671,61 @@ export default function YeniTeklifPage() {
       {/* Add Item Section */}
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-          <h3 className="text-sm font-bold text-gray-700 uppercase">Ürün Ekle</h3>
+          <h3 className="text-sm font-bold text-gray-700 uppercase shrink-0">Ürün Ekle</h3>
+          <div className="relative flex-1 min-w-[220px] max-w-xl mx-2">
+            <Globe className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-sky-600" />
+            <input
+              type="text"
+              value={siteSearch}
+              onChange={(e) => handleSiteSearchInput(e.target.value)}
+              onFocus={() => { if (siteSearch.trim().length >= 2) setShowSiteSearch(true); }}
+              onBlur={() => { setTimeout(() => setShowSiteSearch(false), 200); }}
+              placeholder="Sadece sitede ara (guclumutfak.com)..."
+              className="w-full pl-8 pr-3 py-2 border border-sky-300 bg-sky-50 rounded-lg text-sm text-sky-900 placeholder:text-sky-500/80 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none"
+            />
+            {showSiteSearch && siteSearch.trim().length >= 2 && (
+              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-sky-200 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
+                <div className="px-3 py-1.5 bg-sky-50 border-b border-sky-100 text-[10px] font-bold text-sky-700 uppercase sticky top-0">
+                  {siteSearchLoading
+                    ? 'Sitede aranıyor...'
+                    : `${siteResults.length} sonuç${siteSearchTotal > siteResults.length ? ` / ${siteSearchTotal} eşleşme` : ''} — guclumutfak.com`}
+                </div>
+                {siteSearchLoading && siteResults.length === 0 ? (
+                  <div className="px-3 py-3 text-xs text-sky-600">Sitedeki ürünler taranıyor...</div>
+                ) : siteResults.length === 0 ? (
+                  <div className="px-3 py-3 text-xs text-gray-400">Sitede bu aramaya uygun ürün yok</div>
+                ) : (
+                  siteResults.map((p) => (
+                    <button
+                      key={p.id}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => selectSuggestion(p)}
+                      className="w-full text-left px-3 py-2.5 bg-sky-50 hover:bg-sky-100 border-b border-sky-100 last:border-0 transition flex items-center gap-3"
+                    >
+                      <div className="w-10 h-10 rounded border bg-white overflow-hidden flex-shrink-0 flex items-center justify-center">
+                        {p.image ? (
+                          <img src={p.image} alt="" className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        ) : (
+                          <Globe className="w-4 h-4 text-sky-300" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-semibold text-sm text-sky-900 line-clamp-1">{p.name}</div>
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <span className="text-[10px] bg-sky-200 text-sky-800 px-1.5 py-0.5 rounded font-bold">Site</span>
+                          {p.manufacturer && <span className="text-[10px] text-sky-700">{p.manufacturer}</span>}
+                          {p.sku && <span className="text-[10px] text-gray-400 font-mono">{p.sku}</span>}
+                        </div>
+                      </div>
+                      <div className="text-sm font-bold text-sky-900 whitespace-nowrap">
+                        ₺{productPriceToTry(ensureWebsiteNetPrice(p).price, p.currency).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowListImport(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-300 rounded-lg text-xs font-bold text-blue-700 hover:bg-blue-100 transition">
               <Upload className="w-3.5 h-3.5" /> İçe Aktar
@@ -1685,7 +1793,9 @@ export default function YeniTeklifPage() {
                     key={p.id}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() => selectSuggestion(p)}
-                    className="w-full text-left px-3 py-2.5 hover:bg-blue-50 border-b border-gray-50 transition flex items-center gap-3 group"
+                    className={`w-full text-left px-3 py-2.5 border-b border-gray-50 transition flex items-center gap-3 group ${
+                      p.origin === 'website' ? 'bg-sky-50 hover:bg-sky-100' : 'hover:bg-blue-50'
+                    }`}
                   >
                     <div className="w-10 h-10 rounded border bg-gray-50 overflow-hidden flex-shrink-0 flex items-center justify-center">
                       {p.image ? (
@@ -1695,8 +1805,11 @@ export default function YeniTeklifPage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-sm text-gray-900 line-clamp-1 group-hover:text-blue-700">{p.name}</div>
+                      <div className={`font-semibold text-sm line-clamp-1 ${p.origin === 'website' ? 'text-sky-800' : 'text-gray-900 group-hover:text-blue-700'}`}>{p.name}</div>
                       <div className="flex items-center gap-2 mt-0.5">
+                        {p.origin === 'website' && (
+                          <span className="text-[10px] bg-sky-200 text-sky-800 px-1.5 py-0.5 rounded font-bold">Site</span>
+                        )}
                         {p.manufacturer && (
                           <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded font-medium">{p.manufacturer}</span>
                         )}
@@ -1709,9 +1822,9 @@ export default function YeniTeklifPage() {
                       </div>
                     </div>
                     <div className="text-right flex-shrink-0">
-                      <div className="text-sm font-bold text-gray-900">₺{productPriceToTry(p.price, p.currency).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</div>
+                      <div className="text-sm font-bold text-gray-900">₺{productPriceToTry(ensureWebsiteNetPrice(p).price, p.currency).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</div>
                       {normalizeCurrency(p.currency) !== 'TRY' && (
-                        <div className="text-[10px] text-blue-600 font-semibold">{getCurrencySymbol(normalizeCurrency(p.currency))}{Number(p.price).toLocaleString('tr-TR')} × {rateToTry(p.currency, fxRates).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}</div>
+                        <div className="text-[10px] text-blue-600 font-semibold">{getCurrencySymbol(normalizeCurrency(p.currency))}{Number(ensureWebsiteNetPrice(p).price).toLocaleString('tr-TR')} × {rateToTry(p.currency, fxRates).toLocaleString('tr-TR', { maximumFractionDigits: 2 })}</div>
                       )}
                       <div className="text-[10px] text-green-600 font-bold opacity-0 group-hover:opacity-100 transition">+ Ekle</div>
                     </div>
@@ -2260,9 +2373,9 @@ export default function YeniTeklifPage() {
                                 return words.every(w => text.includes(w));
                               }).slice(0, 15);
                               return results.length > 0 ? results.map((p) => (
-                                <button key={p.id} onClick={() => addProductToPackage(p)} className="w-full text-left p-2 hover:bg-blue-50 border-b border-gray-100 last:border-0 text-sm">
-                                  <div className="font-medium text-gray-900">{p.name}</div>
-                                  <div className="text-[10px] text-gray-400">{p.manufacturer} • {p.sku} • {p.currency} {p.price?.toLocaleString('tr-TR')}</div>
+                                <button key={p.id} onClick={() => addProductToPackage(p)} className={`w-full text-left p-2 border-b border-gray-100 last:border-0 text-sm ${p.origin === 'website' ? 'bg-sky-50 hover:bg-sky-100' : 'hover:bg-blue-50'}`}>
+                                  <div className={`font-medium ${p.origin === 'website' ? 'text-sky-800' : 'text-gray-900'}`}>{p.name}</div>
+                                  <div className="text-[10px] text-gray-400">{p.origin === 'website' ? 'Site · ' : ''}{p.manufacturer} • {p.sku} • {p.currency} {ensureWebsiteNetPrice(p).price?.toLocaleString('tr-TR')}</div>
                                 </button>
                               )) : <div className="p-3 text-xs text-gray-400 text-center">Ürün bulunamadı</div>;
                             })()}
