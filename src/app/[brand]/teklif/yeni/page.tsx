@@ -699,7 +699,7 @@ export default function YeniTeklifPage() {
       quantity: 1,
       image: p.image || '',
       product_link: p.product_link || '',
-      currency: p.currency || 'TRY',
+      currency: (['TRY', 'EUR', 'USD', 'GBP'].includes(String(p.currency)) ? p.currency : 'TRY') as PackageItem['currency'],
     };
     persistEditingPackage({ ...editingPackage, items: [...editingPackage.items, item] });
     setPkgProductSearch('');
