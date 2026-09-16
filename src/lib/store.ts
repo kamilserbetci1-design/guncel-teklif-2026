@@ -6,6 +6,65 @@ import type { StateStorage } from 'zustand/middleware';
 import type { Product, Customer, Proposal, PackageTemplate, ProposalItem, Order } from './types';
 import { supabase, isSupabaseConfigured } from './supabase';
 
+function proposalColumnFromError(message: string): string | null {
+  const match =
+    message.match(/Could not find the '([^']+)' column/i) ||
+    message.match(/column (?:public\.)?proposals\.([a-z0-9_]+) does not exist/i);
+  return match?.[1] || null;
+}
+
+function proposalDbRow(proposal: Proposal): Record<string, unknown> {
+  return {
+    id: proposal.id,
+    brand_id: proposal.brand_id,
+    proposal_no: proposal.proposal_no,
+    proposal_date: proposal.proposal_date,
+    project_name: proposal.project_name,
+    customer_name: proposal.customer_name,
+    customer_phone: proposal.customer_phone,
+    customer_city: proposal.customer_city,
+    customer_address: proposal.customer_address,
+    prepared_by: proposal.prepared_by,
+    items: proposal.items,
+    discount_value: proposal.discount_value,
+    currency: proposal.currency,
+    include_vat: proposal.include_vat,
+    conditions: proposal.conditions,
+    global_hide_prices: proposal.global_hide_prices,
+    status: proposal.status,
+    total: proposal.total,
+    paid_amount: proposal.paid_amount || 0,
+    payment_type: proposal.payment_type || '',
+    discount_type: proposal.discount_type,
+    discount_percent: proposal.discount_percent,
+    custom_header_name: proposal.custom_header_name || '',
+    custom_header_logo: proposal.custom_header_logo || '',
+  };
+}
+
+async function supabaseSaveProposal(
+  kind: 'upsert' | 'update',
+  payload: Record<string, unknown>,
+  id?: string
+) {
+  const row: Record<string, unknown> = { ...payload };
+  for (let i = 0; i < 8; i++) {
+    const query =
+      kind === 'upsert'
+        ? supabase.from('proposals').upsert(row)
+        : supabase.from('proposals').update(row).eq('id', id as string);
+    const { error } = await query;
+    if (!error) return;
+    const column = proposalColumnFromError(error.message || '');
+    if (column && Object.prototype.hasOwnProperty.call(row, column)) {
+      delete row[column];
+      continue;
+    }
+    console.error(`Supabase ${kind}Proposal error:`, error);
+    return;
+  }
+}
+
 // ---------- IndexedDB storage (localStorage 5 MB limitini kaldırır) ----------
 const DB_NAME = 'teklif-yonetim-db';
 const STORE_NAME = 'kv';
@@ -239,21 +298,7 @@ export const useAppStore = create<AppState>()(
         set((s) => ({ proposals: [proposal, ...s.proposals] }));
         if (isSupabaseConfigured()) {
           try {
-            const { error } = await supabase.from('proposals').upsert({
-              id: proposal.id, brand_id: proposal.brand_id, proposal_no: proposal.proposal_no,
-              proposal_date: proposal.proposal_date, project_name: proposal.project_name,
-              customer_name: proposal.customer_name, customer_phone: proposal.customer_phone,
-              customer_city: proposal.customer_city, customer_address: proposal.customer_address,
-              prepared_by: proposal.prepared_by, items: proposal.items,
-              discount_value: proposal.discount_value, currency: proposal.currency,
-              include_vat: proposal.include_vat, conditions: proposal.conditions,
-              global_hide_prices: proposal.global_hide_prices, status: proposal.status, total: proposal.total,
-              paid_amount: proposal.paid_amount || 0, payment_type: proposal.payment_type || '',
-              discount_type: proposal.discount_type, discount_percent: proposal.discount_percent,
-              custom_header_name: proposal.custom_header_name || '',
-              custom_header_logo: proposal.custom_header_logo || '',
-            });
-            if (error) console.error('Supabase addProposal error:', error);
+            await supabaseSaveProposal('upsert', proposalDbRow(proposal));
           } catch (e: unknown) { console.error('Supabase addProposal network error:', e); }
         }
       },
@@ -264,8 +309,7 @@ export const useAppStore = create<AppState>()(
         }));
         if (isSupabaseConfigured()) {
           try {
-            const { error } = await supabase.from('proposals').update({ ...data, updated_at: new Date().toISOString() }).eq('id', id);
-            if (error) console.error('Supabase updateProposal error:', error);
+            await supabaseSaveProposal('update', { ...data, updated_at: new Date().toISOString() }, id);
           } catch (e: unknown) { console.error('Supabase updateProposal network error:', e); }
         }
       },
@@ -316,8 +360,16 @@ export const useAppStore = create<AppState>()(
             custom_header_name: row.custom_header_name || '',
             custom_header_logo: row.custom_header_logo || '',
           }));
-          // Supabase = tek kaynak (source of truth)
-          set({ proposals: supabaseProposals });
+          const remoteIds = new Set(supabaseProposals.map((p) => p.id));
+          const unsynced = get().proposals.filter((p) => !remoteIds.has(p.id));
+          set({ proposals: [...unsynced, ...supabaseProposals] });
+          if (unsynced.length > 0) {
+            unsynced.forEach((p) => {
+              supabaseSaveProposal('upsert', proposalDbRow(p)).catch((e: unknown) => {
+                console.error('Supabase unsynced proposal retry error:', e);
+              });
+            });
+          }
         }
         } catch (e) { console.error('Supabase fetchProposals network error:', e); }
       },
