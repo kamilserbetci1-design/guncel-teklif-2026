@@ -52,17 +52,31 @@ export default function BrandLayout({ children }: { children: React.ReactNode })
       <aside className={`fixed lg:sticky top-0 left-0 h-screen w-64 bg-white border-r border-gray-200 z-50 transform transition-transform duration-200 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'} flex flex-col`}>
         <div className={`p-4 border-b border-gray-200 ${brand.sidebarBg}`}>
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               {brand.logo ? (
-                <img
-                  src={brand.logo}
-                  alt={brand.name}
-                  className="h-10 object-contain brightness-0 invert"
-                  onError={(e) => {
-                    const t = e.target as HTMLImageElement;
-                    t.style.display = 'none';
-                  }}
-                />
+                brandId === 'inoks' || brandId === 'mutpro' ? (
+                  <div className="bg-white rounded-md px-2 py-1.5 shadow-sm">
+                    <img
+                      src={brand.logo}
+                      alt={brand.name}
+                      className="h-9 w-auto max-w-[188px] object-contain object-left"
+                      onError={(e) => {
+                        const t = e.target as HTMLImageElement;
+                        t.style.display = 'none';
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <img
+                    src={brand.logo}
+                    alt={brand.name}
+                    className="h-10 object-contain brightness-0 invert"
+                    onError={(e) => {
+                      const t = e.target as HTMLImageElement;
+                      t.style.display = 'none';
+                    }}
+                  />
+                )
               ) : (
                 <span className="text-white text-sm font-extrabold tracking-wide">{brand.fullName}</span>
               )}
