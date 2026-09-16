@@ -81,6 +81,9 @@ export interface Proposal {
   payment_type?: PaymentType | '';
   custom_header_name?: string;
   custom_header_logo?: string;
+  fx_eur?: number;
+  fx_usd?: number;
+  fx_gbp?: number;
   pdf_url?: string;
   created_at?: string;
   updated_at?: string;

@@ -35,6 +35,35 @@ export const toTry = (amount: number, fromCurrency: string | undefined, rates: F
   return Math.round(n * rate * 100) / 100;
 };
 
+const medianRate = (values: number[]) => {
+  if (!values.length) return 0;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)];
+};
+
+/** Kayıtlı teklifin o günkü kuru; yoksa satırlardaki exchange_rate. */
+export const lockedRatesFromProposal = (
+  p: {
+    fx_eur?: number;
+    fx_usd?: number;
+    fx_gbp?: number;
+    items?: { type?: string; input_currency?: string; exchange_rate?: number }[];
+  },
+  fallback: FxRates
+): FxRates => {
+  const fromItems = (cur: string) =>
+    medianRate(
+      (p.items || [])
+        .filter((i) => i.type !== 'section' && normalizeCurrency(i.input_currency) === cur && Number(i.exchange_rate) > 1)
+        .map((i) => Number(i.exchange_rate))
+    );
+  return {
+    eur: Number(p.fx_eur) > 0 ? Number(p.fx_eur) : fromItems('EUR') || fallback.eur,
+    usd: Number(p.fx_usd) > 0 ? Number(p.fx_usd) : fromItems('USD') || fallback.usd,
+    gbp: Number(p.fx_gbp) > 0 ? Number(p.fx_gbp) : fromItems('GBP') || fallback.gbp,
+  };
+};
+
 export const numberToText = (num: number, currency: string = 'TRY', lang: string = 'tr'): string => {
   if (isNaN(num) || num === 0) return '';
   const ones = ['', 'Bir', 'İki', 'Üç', 'Dört', 'Beş', 'Altı', 'Yedi', 'Sekiz', 'Dokuz'];

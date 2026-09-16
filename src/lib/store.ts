@@ -39,6 +39,9 @@ function proposalDbRow(proposal: Proposal): Record<string, unknown> {
     discount_percent: proposal.discount_percent,
     custom_header_name: proposal.custom_header_name || '',
     custom_header_logo: proposal.custom_header_logo || '',
+    fx_eur: proposal.fx_eur,
+    fx_usd: proposal.fx_usd,
+    fx_gbp: proposal.fx_gbp,
   };
 }
 
@@ -48,7 +51,7 @@ async function supabaseSaveProposal(
   id?: string
 ) {
   const row: Record<string, unknown> = { ...payload };
-  for (let i = 0; i < 8; i++) {
+  for (let i = 0; i < 12; i++) {
     const query =
       kind === 'upsert'
         ? supabase.from('proposals').upsert(row)
@@ -359,6 +362,9 @@ export const useAppStore = create<AppState>()(
             total: row.total || 0,
             custom_header_name: row.custom_header_name || '',
             custom_header_logo: row.custom_header_logo || '',
+            fx_eur: row.fx_eur ? Number(row.fx_eur) : undefined,
+            fx_usd: row.fx_usd ? Number(row.fx_usd) : undefined,
+            fx_gbp: row.fx_gbp ? Number(row.fx_gbp) : undefined,
           }));
           const remoteIds = new Set(supabaseProposals.map((p) => p.id));
           const unsynced = get().proposals.filter((p) => !remoteIds.has(p.id));

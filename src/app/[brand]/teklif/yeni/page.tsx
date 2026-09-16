@@ -4,7 +4,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { getBrand } from '@/lib/brands';
-import { formatCurrency, getCurrencySymbol, numberToText, generateProposalNo, getTodayDate, getValidityDate, getValidityText, fetchExchangeRates, toTry, rateToTry, normalizeCurrency } from '@/lib/helpers';
+import { formatCurrency, getCurrencySymbol, numberToText, generateProposalNo, getTodayDate, getValidityDate, getValidityText, fetchExchangeRates, toTry, rateToTry, normalizeCurrency, lockedRatesFromProposal } from '@/lib/helpers';
 import type { ProposalItem, Proposal, PackageTemplate, PackageItem, PaymentType } from '@/lib/types';
 import { PAYMENT_TYPES } from '@/lib/types';
 import { downloadProposalExcel } from '@/lib/proposal-excel';
@@ -35,14 +35,16 @@ export default function YeniTeklifPage() {
   const [usdRate, setUsdRate] = useState(rates.usd || 46.8);
   const [gbpRate, setGbpRate] = useState(rates.gbp || 62.5);
 
-  // Sync rates from store when they update
+  // Yeni teklifte canlı kur; kayıtlı teklifte o günkü kur kilitli kalır
   useEffect(() => {
+    if (editId) return;
     if (rates.eur > 0) setEurRate(rates.eur);
     if (rates.usd > 0) setUsdRate(rates.usd);
     if (rates.gbp > 0) setGbpRate(rates.gbp);
-  }, [rates]);
+  }, [rates, editId]);
 
   useEffect(() => {
+    if (editId) return;
     let cancelled = false;
     (async () => {
       try {
@@ -55,7 +57,7 @@ export default function YeniTeklifPage() {
       } catch { /* TCMB gelmezse mevcut kur kalır */ }
     })();
     return () => { cancelled = true; };
-  }, [setRates]);
+  }, [editId, setRates]);
 
   const brandProducts = products;
   const isBlankBrand = brandId === 'markasiz';
@@ -178,6 +180,10 @@ export default function YeniTeklifPage() {
       setPaymentType(editingProposal.payment_type || '');
       if (editingProposal.custom_header_name) setCustomHeaderName(editingProposal.custom_header_name);
       if (editingProposal.custom_header_logo) setCustomHeaderLogo(editingProposal.custom_header_logo);
+      const locked = lockedRatesFromProposal(editingProposal, { usd: usdRate, eur: eurRate, gbp: gbpRate });
+      setEurRate(locked.eur);
+      setUsdRate(locked.usd);
+      setGbpRate(locked.gbp);
       setIsLoaded(true);
     }
   }, [editingProposal, isLoaded]);
@@ -821,6 +827,8 @@ export default function YeniTeklifPage() {
     }
   };
 
+  const fxSnapshot = { fx_eur: eurRate, fx_usd: usdRate, fx_gbp: gbpRate };
+
   const handleSave = async () => {
     if (!isFormValid) return alert('Teklifi Hazırlayan alanı zorunludur!');
     if (saving) return;
@@ -849,6 +857,7 @@ export default function YeniTeklifPage() {
           total: finalTotal,
           custom_header_name: isBlankBrand ? customHeaderName.trim() : undefined,
           custom_header_logo: isBlankBrand ? customHeaderLogo : undefined,
+          ...fxSnapshot,
         });
       } else {
         const proposal: Proposal = {
@@ -876,6 +885,7 @@ export default function YeniTeklifPage() {
           total: finalTotal,
           custom_header_name: isBlankBrand ? customHeaderName.trim() : undefined,
           custom_header_logo: isBlankBrand ? customHeaderLogo : undefined,
+          ...fxSnapshot,
         };
         await addProposal(proposal);
       }
@@ -966,6 +976,7 @@ export default function YeniTeklifPage() {
           total: finalTotal,
           custom_header_name: isBlankBrand ? customHeaderName.trim() : undefined,
           custom_header_logo: isBlankBrand ? customHeaderLogo : undefined,
+          ...fxSnapshot,
         });
       } else {
         const proposal: Proposal = {
@@ -993,6 +1004,7 @@ export default function YeniTeklifPage() {
           total: finalTotal,
           custom_header_name: isBlankBrand ? customHeaderName.trim() : undefined,
           custom_header_logo: isBlankBrand ? customHeaderLogo : undefined,
+          ...fxSnapshot,
         };
         await addProposal(proposal);
       }
@@ -1073,6 +1085,7 @@ export default function YeniTeklifPage() {
       total: finalTotal,
       custom_header_name: isBlankBrand ? customHeaderName.trim() : undefined,
       custom_header_logo: isBlankBrand ? customHeaderLogo : undefined,
+      ...fxSnapshot,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1536,6 +1549,7 @@ export default function YeniTeklifPage() {
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] font-bold text-blue-600 uppercase">TCMB Kur</span>
             <RefreshCw className="w-3 h-3 text-blue-400 cursor-pointer hover:text-blue-600" onClick={async () => {
+              if (editId) return;
               try {
                 const live = await fetchExchangeRates();
                 applyLiveRates(live, true);
@@ -1544,20 +1558,21 @@ export default function YeniTeklifPage() {
           </div>
           <div className="flex items-center gap-1">
             <span className="text-[10px] text-gray-500">€1=</span>
-            <input type="number" step="0.01" value={eurRate} onChange={(e) => setEurRate(parseFloat(e.target.value) || 0)} className="w-16 text-xs font-bold text-center border border-blue-300 rounded px-1 py-0.5 bg-white" />
+            <input type="number" step="0.01" value={eurRate} readOnly={!!editId} onChange={(e) => setEurRate(parseFloat(e.target.value) || 0)} className={`w-16 text-xs font-bold text-center border border-blue-300 rounded px-1 py-0.5 ${editId ? 'bg-blue-50 text-blue-900' : 'bg-white'}`} />
             <span className="text-[10px] text-gray-500">₺</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="text-[10px] text-gray-500">$1=</span>
-            <input type="number" step="0.01" value={usdRate} onChange={(e) => setUsdRate(parseFloat(e.target.value) || 0)} className="w-16 text-xs font-bold text-center border border-blue-300 rounded px-1 py-0.5 bg-white" />
+            <input type="number" step="0.01" value={usdRate} readOnly={!!editId} onChange={(e) => setUsdRate(parseFloat(e.target.value) || 0)} className={`w-16 text-xs font-bold text-center border border-blue-300 rounded px-1 py-0.5 ${editId ? 'bg-blue-50 text-blue-900' : 'bg-white'}`} />
             <span className="text-[10px] text-gray-500">₺</span>
           </div>
           <div className="flex items-center gap-1">
             <span className="text-[10px] text-gray-500">£1=</span>
-            <input type="number" step="0.01" value={gbpRate} onChange={(e) => setGbpRate(parseFloat(e.target.value) || 0)} className="w-16 text-xs font-bold text-center border border-blue-300 rounded px-1 py-0.5 bg-white" />
+            <input type="number" step="0.01" value={gbpRate} readOnly={!!editId} onChange={(e) => setGbpRate(parseFloat(e.target.value) || 0)} className={`w-16 text-xs font-bold text-center border border-blue-300 rounded px-1 py-0.5 ${editId ? 'bg-blue-50 text-blue-900' : 'bg-white'}`} />
             <span className="text-[10px] text-gray-500">₺</span>
           </div>
-          <span className="text-[10px] text-blue-700 font-medium">EUR/USD ürünler bu kurla TL’ye çevrilir</span>
+          <span className="text-[10px] text-blue-700 font-medium">{editId ? 'Kayıtlı teklifin kuru kilitli (Euro/dolar tutarı değişmez)' : 'EUR/USD ürünler bu kurla TL’ye çevrilir'}</span>
+          {!editId && (
           <button
             type="button"
             onClick={() => recastFxItems()}
@@ -1565,6 +1580,7 @@ export default function YeniTeklifPage() {
           >
             Döviz satırlarını güncelle
           </button>
+          )}
         </div>
       </div>
 

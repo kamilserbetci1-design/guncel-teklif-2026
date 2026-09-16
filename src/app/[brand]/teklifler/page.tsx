@@ -217,6 +217,9 @@ export default function TekliflerPage() {
             global_hide_prices: row.global_hide_prices ?? row.globalHidePrices ?? false,
             status: row.status || 'approved',
             total: row.total || 0,
+            fx_eur: row.fx_eur || row.fxEur,
+            fx_usd: row.fx_usd || row.fxUsd,
+            fx_gbp: row.fx_gbp || row.fxGbp,
           };
           await addProposal(proposal);
           existingIds.add(newId);
