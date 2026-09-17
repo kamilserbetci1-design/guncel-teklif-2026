@@ -2273,8 +2273,15 @@ export default function YeniTeklifPage() {
                   min="0"
                   max={discountMode === 'percent' ? 100 : undefined}
                   step="any"
-                  value={discountValue}
-                  onChange={(e) => setDiscountValue(parseFloat(e.target.value) || 0)}
+                  value={
+                    discountMode === 'percent'
+                      ? discountValue
+                      : (discountValue ? Math.round(convertCurrency(discountValue) * 100) / 100 : 0)
+                  }
+                  onChange={(e) => {
+                    const n = parseFloat(e.target.value) || 0;
+                    setDiscountValue(discountMode === 'percent' ? n : fromDisplayToTRY(n));
+                  }}
                   className="w-16 text-right border-b border-gray-300 outline-none bg-transparent text-sm font-semibold"
                 />
                 <span className="text-red-500 font-semibold text-sm">-{formatCurrency(convertCurrency(discountAmount), sym)}</span>
@@ -2292,8 +2299,15 @@ export default function YeniTeklifPage() {
             <div className="flex justify-between text-sm items-center">
               <span className="text-gray-600">Kargo / Taşıma Bedeli:</span>
               <div className="flex items-center gap-1">
-                <input type="number" min="0" value={shippingCost} onChange={(e) => setShippingCost(parseFloat(e.target.value) || 0)} className="w-20 text-right border-b border-gray-300 outline-none bg-transparent text-sm font-semibold" />
-                <span className="text-sm">{formatCurrency(convertCurrency(shippingCost), sym)}</span>
+                <span className="text-xs text-gray-400">{sym}</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="any"
+                  value={shippingCost ? Math.round(convertCurrency(shippingCost) * 100) / 100 : 0}
+                  onChange={(e) => setShippingCost(fromDisplayToTRY(parseFloat(e.target.value) || 0))}
+                  className="w-24 text-right border-b border-gray-300 outline-none bg-transparent text-sm font-semibold"
+                />
               </div>
             </div>
             {installment > 0 && (
