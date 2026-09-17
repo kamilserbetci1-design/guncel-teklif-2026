@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { mergeRegisteredWithWebsite, ensureWebsiteNetPrice } from '@/lib/guclu-mutfak-catalog';
 import { cafeMarktProxiedImage } from '@/lib/cafemarkt-catalog';
+import { rankProducts, foldedIncludes, foldSearchText } from '@/lib/product-search';
 
 export default function YeniTeklifPage() {
   const params = useParams();
@@ -456,11 +457,7 @@ export default function YeniTeklifPage() {
   const handleNameInput = (value: string) => {
     setNewItem({ ...newItem, name: value });
     if (value.length >= 2 && brandProducts.length > 0) {
-      const words = value.toLowerCase().split(/\s+/).filter(w => w.length > 0);
-      const matches = brandProducts.filter((p) => {
-        const text = [p.name, p.sku || '', p.category || '', p.manufacturer || ''].join(' ').toLowerCase();
-        return words.every(w => text.includes(w));
-      }).slice(0, 30);
+      const matches = rankProducts(brandProducts, value, 80);
       setNameSuggestions(matches);
       setShowNameSuggestions(true);
     } else {
@@ -943,8 +940,8 @@ export default function YeniTeklifPage() {
   const saveCustomerFromProposal = async () => {
     const plainName = stripHtml(customerName);
     if (!plainName) return;
-    const key = plainName.toLocaleLowerCase('tr');
-    const exists = customers.some((c) => c.brand_id === brandId && (c.name || '').trim().toLocaleLowerCase('tr') === key);
+    const key = foldSearchText(plainName);
+    const exists = customers.some((c) => c.brand_id === brandId && foldSearchText((c.name || '').trim()) === key);
     if (exists) return;
     try {
       await addCustomer({
@@ -1056,12 +1053,12 @@ export default function YeniTeklifPage() {
   const [excelBusy, setExcelBusy] = useState(false);
 
   // Yeni teklifte: girilen ad/telefon mevcut müşteriyle eşleşirse öneri göster
-  const custNameQ = stripHtml(customerName).toLocaleLowerCase('tr');
+  const custNameQ = foldSearchText(stripHtml(customerName));
   const custPhoneQ = (customerPhone || '').replace(/\s/g, '');
-  const custExactApplied = customers.some((c) => c.brand_id === brandId && custNameQ.length > 0 && (c.name || '').trim().toLocaleLowerCase('tr') === custNameQ && (c.phone || '').replace(/\s/g, '') === custPhoneQ);
+  const custExactApplied = customers.some((c) => c.brand_id === brandId && custNameQ.length > 0 && foldSearchText((c.name || '').trim()) === custNameQ && (c.phone || '').replace(/\s/g, '') === custPhoneQ);
   const custSuggestions = (!editId && !custDismissed && !custExactApplied && (custNameQ.length >= 2 || custPhoneQ.length >= 3))
     ? customers.filter((c) => c.brand_id === brandId).filter((c) => {
-        const cn = (c.name || '').trim().toLocaleLowerCase('tr');
+        const cn = foldSearchText((c.name || '').trim());
         const cp = (c.phone || '').replace(/\s/g, '');
         const nameHit = custNameQ.length >= 2 && cn.includes(custNameQ);
         const phoneHit = custPhoneQ.length >= 3 && cp.length > 0 && cp.includes(custPhoneQ);
@@ -2409,7 +2406,7 @@ export default function YeniTeklifPage() {
                   <Plus className="w-4 h-4" /> Yeni Paket
                 </button>
                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wide pt-1">{brandPackages.length} paket</div>
-                {brandPackages.filter((pkg) => !pkgListSearch.trim() || pkg.name.toLowerCase().includes(pkgListSearch.toLowerCase())).map((pkg) => (
+                {brandPackages.filter((pkg) => !pkgListSearch.trim() || foldedIncludes(pkg.name, pkgListSearch)).map((pkg) => (
                   <div key={String(pkg.id)} className={`p-3 rounded-xl border bg-white transition ${String(editingPackage?.id) === String(pkg.id) ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:border-gray-300'}`}>
                     <button type="button" className="w-full text-left" onClick={() => setEditingPackage({ ...pkg, id: String(pkg.id) })}>
                       <div className="font-bold text-sm text-gray-900">{pkg.name}</div>
@@ -2452,11 +2449,7 @@ export default function YeniTeklifPage() {
                         {showPkgProductSearch && pkgProductSearch.length >= 2 && (
                           <div className="absolute z-10 left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                             {(() => {
-                              const words = pkgProductSearch.toLowerCase().split(/\s+/).filter(w => w.length > 0);
-                              const results = brandProducts.filter(p => {
-                                const text = [p.name, p.sku || '', p.category || '', p.manufacturer || ''].join(' ').toLowerCase();
-                                return words.every(w => text.includes(w));
-                              }).slice(0, 15);
+                              const results = rankProducts(brandProducts, pkgProductSearch, 20);
                               return results.length > 0 ? results.map((p) => (
                                 <button key={p.id} onClick={() => addProductToPackage(p)} className={`w-full text-left p-2 border-b border-gray-100 last:border-0 text-sm ${p.origin === 'website' ? 'bg-sky-50 hover:bg-sky-100' : 'hover:bg-blue-50'}`}>
                                   <div className={`font-medium ${p.origin === 'website' ? 'text-sky-800' : 'text-gray-900'}`}>{p.name}</div>

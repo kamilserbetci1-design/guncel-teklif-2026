@@ -6,6 +6,7 @@ import { getBrand } from '@/lib/brands';
 import { Search, Plus, Trash2, Edit2, X, Save, Users } from 'lucide-react';
 import { useState } from 'react';
 import type { Customer } from '@/lib/types';
+import { foldedIncludes } from '@/lib/product-search';
 
 export default function MusterilerPage() {
   const params = useParams();
@@ -47,8 +48,7 @@ export default function MusterilerPage() {
   const brandCustomers = customers
     .filter((c) => {
       if (!search) return true;
-      const s = search.toLowerCase();
-      return c.name.toLowerCase().includes(s) || c.phone.toLowerCase().includes(s) || c.city.toLowerCase().includes(s);
+      return foldedIncludes(`${c.name} ${c.phone} ${c.city}`, search);
     });
 
   const handleSave = async () => {

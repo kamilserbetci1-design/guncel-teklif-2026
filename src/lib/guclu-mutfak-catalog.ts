@@ -1,4 +1,5 @@
 import type { Product } from '@/lib/types';
+import { foldSearchText, scoreSearchText, searchTokens } from '@/lib/product-search';
 
 const SITEMAP_URL = 'https://guclumutfak.com/products.xml';
 const UA =
@@ -185,36 +186,20 @@ export async function fetchWebsiteProductPage(page: number, pageSize: number) {
   };
 }
 
-const slugify = (value: string) =>
-  value
-    .toLocaleLowerCase('tr-TR')
-    .replace(/ı/g, 'i')
-    .replace(/ğ/g, 'g')
-    .replace(/ü/g, 'u')
-    .replace(/ş/g, 's')
-    .replace(/ö/g, 'o')
-    .replace(/ç/g, 'c')
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
-
-const queryTokens = (q: string) =>
-  slugify(q)
-    .split(/\s+/)
-    .filter((t) => t.length >= 2);
+const slugify = foldSearchText;
 
 export async function searchWebsiteProducts(query: string, offset = 0, limit = 40) {
-  const tokens = queryTokens(query);
+  const tokens = searchTokens(query);
   if (!tokens.length) {
     return { products: [] as Product[], total: 0, query, offset, hasMore: false };
   }
 
   const urls = await getProductSitemapUrls();
   const matchedUrls = urls
-    .filter((url) => {
-      const slug = slugify(url);
-      return tokens.every((t) => slug.includes(t));
-    })
-    .sort((a, b) => a.length - b.length);
+    .map((url) => ({ url, score: scoreSearchText(slugify(url), query) }))
+    .filter((row) => row.score > 0)
+    .sort((a, b) => b.score - a.score || a.url.length - b.url.length)
+    .map((row) => row.url);
 
   const total = matchedUrls.length;
   const start = Math.max(0, offset);
@@ -222,7 +207,12 @@ export async function searchWebsiteProducts(query: string, offset = 0, limit = 4
   const rows = await mapPool(slice, 12, fetchProductPage);
   const products = rows
     .filter((p): p is Product => Boolean(p))
-    .map(ensureWebsiteNetPrice);
+    .map(ensureWebsiteNetPrice)
+    .sort(
+      (a, b) =>
+        scoreSearchText(`${b.name} ${b.category} ${b.manufacturer} ${b.sku}`, query) -
+        scoreSearchText(`${a.name} ${a.category} ${a.manufacturer} ${a.sku}`, query)
+    );
 
   return {
     products,
@@ -248,7 +238,7 @@ export function mergeRegisteredWithWebsite(registered: Product[], website: Produ
   }
   for (const p of website) {
     const id = String(p.id);
-    map.set(id, ensureWebsiteNetPrice({ ...p, origin: 'website' }));
+    map.set(id, ensureWebsiteNetPrice({ ...p, origin: p.origin === 'cafemarkt' ? 'cafemarkt' : 'website' }));
   }
   return Array.from(map.values());
 }

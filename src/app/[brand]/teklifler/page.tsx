@@ -11,6 +11,7 @@ import type { ProposalStatus, Proposal } from '@/lib/types';
 import { STATUS_LABELS, STATUS_COLORS } from '@/lib/types';
 import Link from 'next/link';
 import { stripHtml } from '@/components/RichEditor';
+import { foldedIncludes } from '@/lib/product-search';
 
 export default function TekliflerPage() {
   const params = useParams();
@@ -36,13 +37,8 @@ export default function TekliflerPage() {
       if (preparedByFilter && (p.prepared_by || '') !== preparedByFilter) return false;
       if (dateFilter && (p.proposal_date || '') !== dateFilter) return false;
       if (!search) return true;
-      const s = search.toLocaleLowerCase('tr-TR');
-      return (
-        (p.project_name || '').toLocaleLowerCase('tr-TR').includes(s) ||
-        stripHtml(p.customer_name || '').toLocaleLowerCase('tr-TR').includes(s) ||
-        (p.proposal_no || '').toLocaleLowerCase('tr-TR').includes(s) ||
-        (p.prepared_by || '').toLocaleLowerCase('tr-TR').includes(s)
-      );
+      const hay = [p.project_name, stripHtml(p.customer_name || ''), p.proposal_no, p.prepared_by].join(' ');
+      return foldedIncludes(hay, search);
     });
 
   const handleDelete = (id: string) => {

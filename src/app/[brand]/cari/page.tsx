@@ -15,6 +15,7 @@ import {
   isDebtType,
   isPaymentType,
 } from '@/lib/cari-types';
+import { foldedIncludes } from '@/lib/product-search';
 import {
   Lock, LogOut, Plus, Pencil, Trash2, Search, Settings, Bolt, X, FileDown,
   Printer, Upload, Users, ArrowLeft, TrendingUp, TrendingDown, KeyRound, UserPlus,
@@ -417,7 +418,7 @@ function Dashboard({ accounts, transactions, onOpen, onAdd }: {
     });
   }, [accounts, transactions]);
 
-  const filtered = rows.filter((r) => r.name.toLowerCase().includes(search.toLowerCase()));
+  const filtered = rows.filter((r) => foldedIncludes(r.name, search));
 
   const totals = useMemo(() => {
     let receivable = 0, payable = 0, sumDebt = 0, sumCredit = 0, sumBalance = 0;
@@ -671,7 +672,7 @@ function CustomerDetail({ account, transactions, onSaveTransaction, onDeleteTran
       const matchesDate = checkDateFilter(t.date, dateFilter);
       if (!start) { if (isDebtType(t.type)) running += t.amount; else running -= t.amount; }
       else if (matchesDate) { if (isDebtType(t.type)) running += t.amount; else running -= t.amount; }
-      const matchesSearch = t.description.toLowerCase().includes(term) || t.date.includes(term);
+      const matchesSearch = !term || foldedIncludes(`${t.description} ${t.date}`, search);
       if (matchesSearch && matchesDate) out.push({ t, balance: running });
     });
     return { rows: out, devir: start ? { balance: devirBalance, start } : null, displayedCount: out.length };

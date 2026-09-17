@@ -8,6 +8,7 @@ import {
   storeTotal, warehouseTotal, grandTotal, numberFmt,
   CURRENCIES, CURRENCY_SYMBOLS, SALE_MARKUP_PRESETS, moneyFmt, costToTRY, netFromList, norm,
 } from '@/lib/stok-types';
+import { scoreSearchText, rankProducts } from '@/lib/product-search';
 import {
   Package, Store, Warehouse, Plus, Search, Pencil, Trash2, X, FileDown, Upload,
   ArrowRightLeft, ArrowDownToLine, ArrowUpFromLine, Loader2, ShieldCheck, Boxes,
@@ -131,13 +132,12 @@ export default function StokPage() {
   }, [categories, products]);
 
   const filtered = useMemo(() => {
-    const words = norm(search).split(' ').filter(Boolean); // çok kelimeli, Türkçe-duyarsız arama
+    const q = search.trim();
     return products.filter((p) => {
       if (locFilter === 'store' && storeTotal(p) === 0) return false;
       if (locFilter === 'warehouse' && warehouseTotal(p) === 0) return false;
       if (fBrand && norm(p.brand) !== norm(fBrand)) return false;
       if (fCat && norm(p.category) !== norm(fCat)) return false;
-      // Paket filtresi seçili depoya göre sayar (mağaza/depo/hepsi)
       const boxed = locFilter === 'store' ? p.store_boxed : locFilter === 'warehouse' ? p.warehouse_boxed : p.store_boxed + p.warehouse_boxed;
       const unboxed = locFilter === 'store' ? p.store_unboxed : locFilter === 'warehouse' ? p.warehouse_unboxed : p.store_unboxed + p.warehouse_unboxed;
       if (fPack === 'boxed' && boxed === 0) return false;
@@ -145,10 +145,7 @@ export default function StokPage() {
       const hasPrice = p.cost > 0 || p.sale_price > 0;
       if (fPrice === 'priced' && !hasPrice) return false;
       if (fPrice === 'unpriced' && hasPrice) return false;
-      if (words.length) {
-        const hay = norm(`${p.code} ${p.name} ${p.brand} ${p.category} ${p.color}`);
-        if (!words.every((w) => hay.includes(w))) return false;
-      }
+      if (q && scoreSearchText(`${p.code} ${p.name} ${p.brand} ${p.category} ${p.color}`, q) <= 0) return false;
       return true;
     });
   }, [products, search, fBrand, fCat, fPack, fPrice, locFilter]);
@@ -723,11 +720,8 @@ function CatalogPicker({ catalog, onPick }: {
   const [open, setOpen] = useState(false);
 
   const results = useMemo(() => {
-    const term = norm(q);
-    if (term.length < 2) return [];
-    return catalog
-      .filter((c) => norm(`${c.name} ${c.sku} ${c.manufacturer}`).includes(term))
-      .slice(0, 8);
+    if (q.trim().length < 2) return [];
+    return rankProducts(catalog, q, 12);
   }, [q, catalog]);
 
   return (

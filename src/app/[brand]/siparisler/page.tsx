@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { getBrand } from '@/lib/brands';
 import { stripHtml } from '@/components/RichEditor';
+import { rankProducts, foldedIncludes } from '@/lib/product-search';
 import {
   Order, OrderItem, OrderStatus,
   ORDER_STATUS_LABELS, ORDER_STATUS_COLORS, ORDER_STATUS_ROW_COLORS,
@@ -113,36 +114,22 @@ export default function OrdersPage() {
   // Filtered products for dropdown
   const filteredProducts = useMemo(() => {
     if (!productSearch.trim()) return brandProducts.slice(0, 20);
-    const s = productSearch.toLocaleLowerCase('tr-TR');
-    return brandProducts
-      .filter((p) =>
-        p.name?.toLocaleLowerCase('tr-TR').includes(s) ||
-        (p.sku || '').toLocaleLowerCase('tr-TR').includes(s)
-      )
-      .slice(0, 20);
+    return rankProducts(brandProducts, productSearch, 40);
   }, [productSearch, brandProducts]);
 
   // Filtered customers
   const brandCustomers = customers.filter((c) => c.brand_id === brandId);
   const filteredCustomers = useMemo(() => {
     if (!customerSearch.trim()) return brandCustomers.slice(0, 10);
-    const s = customerSearch.toLocaleLowerCase('tr-TR');
-    return brandCustomers
-      .filter((c) => c.name.toLocaleLowerCase('tr-TR').includes(s))
-      .slice(0, 10);
+    return brandCustomers.filter((c) => foldedIncludes(c.name, customerSearch)).slice(0, 10);
   }, [customerSearch, brandCustomers]);
 
   // Filtered proposals for linking
   const brandProposals = proposals.filter((p) => p.brand_id === brandId);
   const filteredProposals = useMemo(() => {
     if (!proposalSearch.trim()) return brandProposals.slice(0, 10);
-    const s = proposalSearch.toLocaleLowerCase('tr-TR');
     return brandProposals
-      .filter((p) =>
-        (p.proposal_no || '').toLocaleLowerCase('tr-TR').includes(s) ||
-        stripHtml(p.customer_name || '').toLocaleLowerCase('tr-TR').includes(s) ||
-        (p.project_name || '').toLocaleLowerCase('tr-TR').includes(s)
-      )
+      .filter((p) => foldedIncludes(`${p.proposal_no} ${stripHtml(p.customer_name || '')} ${p.project_name}`, proposalSearch))
       .slice(0, 10);
   }, [proposalSearch, brandProposals]);
 
@@ -153,13 +140,7 @@ export default function OrdersPage() {
       if (missingFilter && !o.items.some((i) => i.status === 'eksik_urun' || (i.missing_qty && i.missing_qty > 0))) return false;
       if (deliveryDateFilter && (o.delivery_date || '') !== deliveryDateFilter) return false;
       if (!search) return true;
-      const s = search.toLocaleLowerCase('tr-TR');
-      return (
-        (o.order_no || '').toLocaleLowerCase('tr-TR').includes(s) ||
-        stripHtml(o.customer_name || '').toLocaleLowerCase('tr-TR').includes(s) ||
-        (o.proposal_no || '').toLocaleLowerCase('tr-TR').includes(s) ||
-        (o.assigned_to || '').toLocaleLowerCase('tr-TR').includes(s)
-      );
+      return foldedIncludes(`${o.order_no} ${stripHtml(o.customer_name || '')} ${o.proposal_no} ${o.assigned_to}`, search);
     });
   }, [brandOrders, search, statusFilter, missingFilter, deliveryDateFilter]);
 

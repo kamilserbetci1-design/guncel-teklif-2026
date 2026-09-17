@@ -1,5 +1,6 @@
 import type { Product } from '@/lib/types';
 import { ensureWebsiteNetPrice, websiteNetPrice } from '@/lib/guclu-mutfak-catalog';
+import { asciiSearchQuery, scoreSearchText } from '@/lib/product-search';
 
 export const CAFEMARKT_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
@@ -78,29 +79,42 @@ export function parseCafeMarktSearchHtml(html: string, pageUrl: string): Product
 }
 
 export async function searchCafeMarktProducts(query: string, page = 1) {
-  const q = query.trim();
+  const original = query.trim();
+  const q = asciiSearchQuery(original) || original;
   if (q.length < 2) {
-    return { products: [] as Product[], total: 0, page: 1, pageCount: 1, hasMore: false, query: q };
+    return { products: [] as Product[], total: 0, page: 1, pageCount: 1, hasMore: false, query: original };
   }
-  const params = new URLSearchParams({ q, Arama: q, pg: String(Math.max(1, page)) });
-  const url = `${BASE}/arama?${params.toString()}`;
-  const res = await fetch(url, {
-    headers: { 'user-agent': CAFEMARKT_UA, accept: 'text/html,application/xhtml+xml', referer: `${BASE}/` },
-    cache: 'no-store',
-  });
-  if (!res.ok) throw new Error(`CafeMarkt araması alınamadı (${res.status})`);
-  const html = await res.text();
-  const products = parseCafeMarktSearchHtml(html, url);
-  const shown = Number((html.match(/<strong>(\d+)<\/strong>\s*ürün/) || [])[1] || 0);
-  const maxPg = Math.max(1, ...Array.from(html.matchAll(/[?&]pg=(\d+)/g)).map((m) => Number(m[1]) || 1));
-  const total = shown || products.length;
-  const pageCount = Math.max(maxPg, page);
+  const fetchPage = async (term: string, pg: number) => {
+    const params = new URLSearchParams({ q: term, Arama: term, pg: String(Math.max(1, pg)) });
+    const url = `${BASE}/arama?${params.toString()}`;
+    const res = await fetch(url, {
+      headers: { 'user-agent': CAFEMARKT_UA, accept: 'text/html,application/xhtml+xml', referer: `${BASE}/` },
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`CafeMarkt araması alınamadı (${res.status})`);
+    const html = await res.text();
+    const products = parseCafeMarktSearchHtml(html, url);
+    const shown = Number((html.match(/<strong>(\d+)<\/strong>\s*ürün/) || [])[1] || 0);
+    const maxPg = Math.max(1, ...Array.from(html.matchAll(/[?&]pg=(\d+)/g)).map((m) => Number(m[1]) || 1));
+    return { products, shown, maxPg, url };
+  };
+
+  let hit = await fetchPage(q, page);
+  if (!hit.products.length && q.includes(' ')) {
+    const fallback = q.split(/\s+/).sort((a, b) => b.length - a.length)[0];
+    if (fallback && fallback !== q) hit = await fetchPage(fallback, page);
+  }
+  const products = [...hit.products].sort(
+    (a, b) => scoreSearchText(`${b.name} ${b.manufacturer} ${b.sku}`, original || q) - scoreSearchText(`${a.name} ${a.manufacturer} ${a.sku}`, original || q)
+  );
+  const total = hit.shown || products.length;
+  const pageCount = Math.max(hit.maxPg, page);
   return {
     products,
     total,
     page,
     pageCount,
     hasMore: page < pageCount,
-    query: q,
+    query: original,
   };
 }

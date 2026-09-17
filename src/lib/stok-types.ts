@@ -61,10 +61,13 @@ export const numberFmt = new Intl.NumberFormat('tr-TR');
 // Türkçe-duyarsız normalize: İ/ı/ş/ğ/ç/ö/ü ve aksanları sadeleştirir, boşlukları toplar
 export const norm = (s: string) =>
   (s || '')
+    .replace(/İ/g, 'i')
+    .replace(/I/g, 'i')
+    .replace(/ı/g, 'i')
     .toLocaleLowerCase('tr')
     .replace(/ı/g, 'i').replace(/ş/g, 's').replace(/ğ/g, 'g')
     .replace(/ü/g, 'u').replace(/ö/g, 'o').replace(/ç/g, 'c')
-    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
     .replace(/\s+/g, ' ').trim();
 
 export const SALE_MARKUP_PRESETS = [25, 30, 35];

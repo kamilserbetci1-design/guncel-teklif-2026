@@ -1,4 +1,5 @@
 import type { Product } from '@/lib/types';
+import { foldSearchText } from '@/lib/product-search';
 
 export type ImportedListRow = {
   name: string;
@@ -6,17 +7,7 @@ export type ImportedListRow = {
   quantity: number;
 };
 
-const TR_MAP: Record<string, string> = {
-  ç: 'c', ğ: 'g', ı: 'i', ö: 'o', ş: 's', ü: 'u',
-  Ç: 'c', Ğ: 'g', İ: 'i', I: 'i', Ö: 'o', Ş: 's', Ü: 'u',
-};
-
-export const foldTr = (s: string) =>
-  (s || '')
-    .replace(/[çğıöşüÇĞİIÖŞÜ]/g, (ch) => TR_MAP[ch] || ch)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, ' ')
-    .trim();
+export const foldTr = foldSearchText;
 
 const HEADER = /^(urun|ürün|adi|adı|name|isim|kategori|category|kod|sku|adet|qty|no|#)$/i;
 
@@ -143,7 +134,7 @@ export function matchCatalog(query: string, products: Product[], category?: stri
       if (qWords.length) score = Math.round((hits / qWords.length) * 70);
     }
     if (cat && foldTr(p.category || '').includes(cat)) score += 8;
-    if (score >= 38) scored.push({ product: p, score });
+    if (score >= 28) scored.push({ product: p, score });
   }
   scored.sort((a, b) => b.score - a.score);
   return scored.slice(0, 6);
