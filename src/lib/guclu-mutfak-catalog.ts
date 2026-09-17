@@ -60,7 +60,7 @@ export const websiteNetPrice = (gross: number) => {
 };
 
 export function ensureWebsiteNetPrice(p: Product): Product {
-  if (p.origin !== 'website' || p.vat_included === false) return p;
+  if ((p.origin !== 'website' && p.origin !== 'cafemarkt') || p.vat_included === false) return p;
   return { ...p, price: websiteNetPrice(p.price), vat_included: false };
 }
 
@@ -77,7 +77,6 @@ export function mapWebsiteProduct(html: string, url: string): Product | null {
   const price = Number(String(offer.price ?? product.price ?? '0').replace(',', '.')) || 0;
   const currency = (text(offer.priceCurrency) || 'TRY').toUpperCase();
   const sku = text(product.sku) || text(product.mpn);
-  const productId = text(product.productId) || text(product.sku);
   const images = asArray(product.image)
     .map((img) => {
       if (typeof img === 'string') return img;
@@ -96,8 +95,9 @@ export function mapWebsiteProduct(html: string, url: string): Product | null {
     .filter((n) => n && !/güçlü mutfak/i.test(n) && n !== name);
   const category = crumbNames.slice(-2).join(' > ') || crumbNames.join(' > ');
 
+  const slugId = url.replace(/\/$/, '').split('/').pop() || name;
   return {
-    id: `web-gm-${productId || sku || url.split('/').pop() || name}`.slice(0, 80),
+    id: `web-gm-${slugId}`.slice(0, 120),
     brand_id: 'guclumutfak',
     name,
     description: text(product.description),
@@ -202,18 +202,12 @@ const queryTokens = (q: string) =>
     .split(/\s+/)
     .filter((t) => t.length >= 2);
 
-const productMatchesTokens = (p: Product, tokens: string[]) => {
-  const hay = slugify([p.name, p.sku || '', p.manufacturer || '', p.category || '', p.product_link || ''].join(' '));
-  return tokens.every((t) => hay.includes(t));
-};
-
-export async function searchWebsiteProducts(query: string, limit = 24) {
+export async function searchWebsiteProducts(query: string, offset = 0, limit = 40) {
   const tokens = queryTokens(query);
   if (!tokens.length) {
-    return { products: [] as Product[], total: 0, query };
+    return { products: [] as Product[], total: 0, query, offset, hasMore: false };
   }
 
-  const fromCache = Array.from(productCache.values()).filter((p) => productMatchesTokens(p, tokens));
   const urls = await getProductSitemapUrls();
   const matchedUrls = urls
     .filter((url) => {
@@ -222,26 +216,21 @@ export async function searchWebsiteProducts(query: string, limit = 24) {
     })
     .sort((a, b) => a.length - b.length);
 
-  const cachedLinks = new Set(fromCache.map((p) => p.product_link.replace(/\/$/, '')));
-  const toFetch = matchedUrls
-    .filter((url) => !cachedLinks.has(url.replace(/\/$/, '')) && !productCache.has(url))
-    .slice(0, Math.max(0, limit - fromCache.length));
+  const total = matchedUrls.length;
+  const start = Math.max(0, offset);
+  const slice = matchedUrls.slice(start, start + Math.max(1, Math.min(limit, 50)));
+  const rows = await mapPool(slice, 12, fetchProductPage);
+  const products = rows
+    .filter((p): p is Product => Boolean(p))
+    .map(ensureWebsiteNetPrice);
 
-  const fetched = await mapPool(toFetch, 8, fetchProductPage);
-  const extra = fetched.filter((p): p is Product => Boolean(p));
-  const extraCached = matchedUrls
-    .map((url) => productCache.get(url))
-    .filter((p): p is Product => Boolean(p));
-
-  const byId = new Map<string, Product>();
-  for (const p of [...fromCache, ...extraCached, ...extra]) {
-    if (productMatchesTokens(p, tokens)) byId.set(p.id, p);
-  }
-  const products = Array.from(byId.values()).map(ensureWebsiteNetPrice).slice(0, limit);
   return {
     products,
-    total: Math.max(matchedUrls.length, byId.size),
+    total,
     query,
+    offset: start,
+    fetched: start + slice.length,
+    hasMore: start + slice.length < total,
   };
 }
 
@@ -255,7 +244,7 @@ export function mergeRegisteredWithWebsite(registered: Product[], website: Produ
   const map = new Map<string, Product>();
   for (const p of registered) {
     const id = String(p.id || catalogProductKey(p));
-    map.set(id, { ...p, id, origin: p.origin === 'website' ? 'website' : p.origin || 'catalog' });
+    map.set(id, { ...p, id, origin: p.origin === 'website' || p.origin === 'cafemarkt' ? p.origin : p.origin || 'catalog' });
   }
   for (const p of website) {
     const id = String(p.id);

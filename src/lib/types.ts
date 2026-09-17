@@ -11,8 +11,8 @@ export interface Product {
   currency: string;
   manufacturer?: string;
   sku?: string;
-  /** catalog = kayıtlı liste; website = guclumutfak.com */
-  origin?: 'catalog' | 'website';
+  /** catalog = kayıtlı; website = guclumutfak.com; cafemarkt = cafemarkt.com */
+  origin?: 'catalog' | 'website' | 'cafemarkt';
   /** false = fiyat KDV hariç (siteden çekilince %20 düşülmüş) */
   vat_included?: boolean;
   created_at?: string;

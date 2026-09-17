@@ -8,6 +8,7 @@ import { useState, useRef, useMemo } from 'react';
 import type { Product } from '@/lib/types';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { ensureWebsiteNetPrice } from '@/lib/guclu-mutfak-catalog';
+import { cafeMarktProxiedImage } from '@/lib/cafemarkt-catalog';
 
 const ITEMS_PER_PAGE = 50;
 
@@ -500,7 +501,9 @@ export default function UrunlerPage() {
                   <tr
                     key={p.id}
                     className={
-                      p.origin === 'website'
+                      p.origin === 'cafemarkt'
+                        ? 'border-b border-amber-100 bg-amber-50 hover:bg-amber-100/80 transition'
+                        : p.origin === 'website'
                         ? 'border-b border-sky-100 bg-sky-50 hover:bg-sky-100/80 transition'
                         : 'border-b border-gray-100 hover:bg-gray-50 transition'
                     }
@@ -508,17 +511,22 @@ export default function UrunlerPage() {
                     <td className="py-2 px-3">
                       <div className="w-10 h-10 rounded border bg-gray-50 overflow-hidden flex items-center justify-center flex-shrink-0">
                         {p.image ? (
-                          <img src={p.image} alt="" className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          <img src={cafeMarktProxiedImage(p.image)} alt="" className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                         ) : (
                           <Package className="w-4 h-4 text-gray-300" />
                         )}
                       </div>
                     </td>
                     <td className="py-2 px-3">
-                      <div className={`font-semibold line-clamp-1 ${p.origin === 'website' ? 'text-sky-800' : 'text-gray-900'}`}>{p.name}</div>
+                      <div className={`font-semibold line-clamp-1 ${p.origin === 'cafemarkt' ? 'text-amber-800' : p.origin === 'website' ? 'text-sky-800' : 'text-gray-900'}`}>{p.name}</div>
                       {p.origin === 'website' && (
                         <span className="inline-block mt-0.5 text-[10px] font-bold uppercase tracking-wide text-sky-700 bg-sky-100 px-1.5 py-0.5 rounded">
                           İnternet sitesi · guclumutfak.com
+                        </span>
+                      )}
+                      {p.origin === 'cafemarkt' && (
+                        <span className="inline-block mt-0.5 text-[10px] font-bold uppercase tracking-wide text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+                          İnternet sitesi · cafemarkt.com
                         </span>
                       )}
                       {p.description && <div className="text-xs text-gray-400 line-clamp-1 max-w-md">{p.description}</div>}

@@ -19,6 +19,7 @@ import {
   List, LayoutGrid, ImagePlus, Type, StickyNote, ChevronUp, Check, FileSpreadsheet, Upload, Globe
 } from 'lucide-react';
 import { mergeRegisteredWithWebsite, ensureWebsiteNetPrice } from '@/lib/guclu-mutfak-catalog';
+import { cafeMarktProxiedImage } from '@/lib/cafemarkt-catalog';
 
 export default function YeniTeklifPage() {
   const params = useParams();
@@ -124,6 +125,8 @@ export default function YeniTeklifPage() {
   const [siteSearchLoading, setSiteSearchLoading] = useState(false);
   const [showSiteSearch, setShowSiteSearch] = useState(false);
   const siteSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const siteSearchSeq = useRef(0);
+  const [siteSearchSource, setSiteSearchSource] = useState<'guclu' | 'cafemarkt'>('guclu');
 
   // Package management
   const [showPackageManager, setShowPackageManager] = useState(false);
@@ -485,8 +488,9 @@ export default function YeniTeklifPage() {
     setNewItem({ name: '', description: '', price: '', cost: '', quantity: '1', image: '', product_link: '' });
   };
 
-  const runSiteSearch = useCallback(async (value: string) => {
+  const runSiteSearch = useCallback(async (value: string, source: 'guclu' | 'cafemarkt' = siteSearchSource) => {
     const q = value.trim();
+    const seq = ++siteSearchSeq.current;
     if (q.length < 2) {
       setSiteResults([]);
       setSiteSearchTotal(0);
@@ -494,21 +498,55 @@ export default function YeniTeklifPage() {
       return;
     }
     setSiteSearchLoading(true);
+    setSiteResults([]);
+    setSiteSearchTotal(0);
     try {
-      const res = await fetch(`/api/guclu-mutfak/products?q=${encodeURIComponent(q)}`);
-      const data = await res.json().catch(() => ({}));
-      const list = Array.isArray(data.products) ? data.products : [];
-      setSiteResults(list);
-      setSiteSearchTotal(Number(data.total) || list.length);
-      if (list.length) {
-        setProducts(mergeRegisteredWithWebsite(useAppStore.getState().products || [], list));
+      let all: typeof brandProducts = [];
+      let total = 0;
+      if (source === 'cafemarkt') {
+        let page = 1;
+        while (true) {
+          const res = await fetch(`/api/cafemarkt/products?q=${encodeURIComponent(q)}&page=${page}`);
+          if (seq !== siteSearchSeq.current) return;
+          const data = await res.json().catch(() => ({}));
+          const list = Array.isArray(data.products) ? data.products : [];
+          total = Number(data.total) || total;
+          all = [...all, ...list];
+          setSiteResults(all);
+          setSiteSearchTotal(total || all.length);
+          if (list.length) {
+            setProducts(mergeRegisteredWithWebsite(useAppStore.getState().products || [], list));
+          }
+          if (!data.hasMore || list.length === 0) break;
+          page += 1;
+          if (page > 40 || all.length > 4000) break;
+        }
+      } else {
+        let offset = 0;
+        while (true) {
+          const res = await fetch(`/api/guclu-mutfak/products?q=${encodeURIComponent(q)}&offset=${offset}&limit=40`);
+          if (seq !== siteSearchSeq.current) return;
+          const data = await res.json().catch(() => ({}));
+          const list = Array.isArray(data.products) ? data.products : [];
+          total = Number(data.total) || total;
+          all = [...all, ...list];
+          setSiteResults(all);
+          setSiteSearchTotal(total);
+          if (list.length) {
+            setProducts(mergeRegisteredWithWebsite(useAppStore.getState().products || [], list));
+          }
+          if (!data.hasMore) break;
+          offset = Number(data.fetched) || offset + list.length;
+          if (offset >= total || all.length >= total) break;
+          if (all.length > 4000) break;
+        }
       }
     } catch {
-      setSiteResults([]);
+      if (seq === siteSearchSeq.current) setSiteResults([]);
     } finally {
-      setSiteSearchLoading(false);
+      if (seq === siteSearchSeq.current) setSiteSearchLoading(false);
     }
-  }, [setProducts]);
+  }, [setProducts, siteSearchSource]);
 
   const handleSiteSearchInput = (value: string) => {
     setSiteSearch(value);
@@ -522,8 +560,19 @@ export default function YeniTeklifPage() {
     }
     setSiteSearchLoading(true);
     siteSearchTimer.current = setTimeout(() => {
-      runSiteSearch(value);
+      runSiteSearch(value, siteSearchSource);
     }, 400);
+  };
+
+  const pickSiteSearchSource = (source: 'guclu' | 'cafemarkt') => {
+    setSiteSearchSource(source);
+    setSiteResults([]);
+    setSiteSearchTotal(0);
+    setShowSiteSearch(siteSearch.trim().length >= 2);
+    if (siteSearch.trim().length >= 2) {
+      if (siteSearchTimer.current) clearTimeout(siteSearchTimer.current);
+      runSiteSearch(siteSearch, source);
+    }
   };
 
   const selectCustomer = (c: any) => {
@@ -1290,7 +1339,7 @@ export default function YeniTeklifPage() {
                       {!isCompactMode && (
                         <td className="py-4 px-3">
                           <div style={{ width: '80px', height: '80px', border: '1px solid #e5e7eb', borderRadius: '4px', backgroundColor: '#fff', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {item.image ? <img src={item.image} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', width: 'auto', height: 'auto' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6' }} />}
+                            {item.image ? <img src={cafeMarktProxiedImage(item.image)} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', width: 'auto', height: 'auto' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6' }} />}
                           </div>
                         </td>
                       )}
@@ -1326,7 +1375,7 @@ export default function YeniTeklifPage() {
                 return (
                   <div key={item.id} className={`flex gap-5 p-4 rounded-xl border ${item.shipped ? 'opacity-50 line-through' : ''}`} style={{ borderColor: brand.tableBorderHex, pageBreakInside: 'avoid' }}>
                     <div style={{ width: '144px', height: '144px', flexShrink: 0, border: '1px solid #e5e7eb', borderRadius: '8px', backgroundColor: '#fff', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {item.image ? <img src={item.image} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', width: 'auto', height: 'auto' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6' }} />}
+                      {item.image ? <img src={cafeMarktProxiedImage(item.image)} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', width: 'auto', height: 'auto' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6' }} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="font-bold text-gray-900 text-base">{item.name}</div>
@@ -1672,26 +1721,55 @@ export default function YeniTeklifPage() {
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h3 className="text-sm font-bold text-gray-700 uppercase shrink-0">Ürün Ekle</h3>
-          <div className="relative flex-1 min-w-[220px] max-w-xl mx-2">
-            <Globe className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-sky-600" />
+          <div className="relative flex-1 min-w-[260px] max-w-2xl mx-2">
+            <div className="flex items-center gap-1 mb-1.5">
+              <button
+                type="button"
+                onClick={() => pickSiteSearchSource('guclu')}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border transition ${
+                  siteSearchSource === 'guclu'
+                    ? 'bg-sky-600 text-white border-sky-600'
+                    : 'bg-white text-sky-700 border-sky-200 hover:bg-sky-50'
+                }`}
+              >
+                Güçlü Mutfak
+              </button>
+              <button
+                type="button"
+                onClick={() => pickSiteSearchSource('cafemarkt')}
+                className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border transition ${
+                  siteSearchSource === 'cafemarkt'
+                    ? 'bg-amber-600 text-white border-amber-600'
+                    : 'bg-white text-amber-700 border-amber-200 hover:bg-amber-50'
+                }`}
+              >
+                CafeMarkt
+              </button>
+            </div>
+            <div className="relative">
+            <Globe className={`absolute left-2.5 top-2.5 w-3.5 h-3.5 ${siteSearchSource === 'cafemarkt' ? 'text-amber-600' : 'text-sky-600'}`} />
             <input
               type="text"
               value={siteSearch}
               onChange={(e) => handleSiteSearchInput(e.target.value)}
               onFocus={() => { if (siteSearch.trim().length >= 2) setShowSiteSearch(true); }}
               onBlur={() => { setTimeout(() => setShowSiteSearch(false), 200); }}
-              placeholder="Sadece sitede ara (guclumutfak.com)..."
-              className="w-full pl-8 pr-3 py-2 border border-sky-300 bg-sky-50 rounded-lg text-sm text-sky-900 placeholder:text-sky-500/80 focus:border-sky-500 focus:ring-1 focus:ring-sky-500 outline-none"
+              placeholder={siteSearchSource === 'cafemarkt' ? 'Sadece cafemarkt.com’da ara...' : 'Sadece guclumutfak.com’da ara...'}
+              className={`w-full pl-8 pr-3 py-2 rounded-lg text-sm outline-none focus:ring-1 ${
+                siteSearchSource === 'cafemarkt'
+                  ? 'border border-amber-300 bg-amber-50 text-amber-900 placeholder:text-amber-500/80 focus:border-amber-500 focus:ring-amber-500'
+                  : 'border border-sky-300 bg-sky-50 text-sky-900 placeholder:text-sky-500/80 focus:border-sky-500 focus:ring-sky-500'
+              }`}
             />
             {showSiteSearch && siteSearch.trim().length >= 2 && (
-              <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-sky-200 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto">
-                <div className="px-3 py-1.5 bg-sky-50 border-b border-sky-100 text-[10px] font-bold text-sky-700 uppercase sticky top-0">
+              <div className={`absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-xl z-50 max-h-[28rem] overflow-y-auto ${siteSearchSource === 'cafemarkt' ? 'border border-amber-200' : 'border border-sky-200'}`}>
+                <div className={`px-3 py-1.5 border-b text-[10px] font-bold uppercase sticky top-0 ${siteSearchSource === 'cafemarkt' ? 'bg-amber-50 border-amber-100 text-amber-700' : 'bg-sky-50 border-sky-100 text-sky-700'}`}>
                   {siteSearchLoading
-                    ? 'Sitede aranıyor...'
-                    : `${siteResults.length} sonuç${siteSearchTotal > siteResults.length ? ` / ${siteSearchTotal} eşleşme` : ''} — guclumutfak.com`}
+                    ? `Sitede aranıyor... ${siteResults.length}${siteSearchTotal ? ` / ${siteSearchTotal}` : ''} ürün`
+                    : `${siteResults.length} ürün${siteSearchTotal > siteResults.length ? ` / ${siteSearchTotal}` : ''} — ${siteSearchSource === 'cafemarkt' ? 'cafemarkt.com' : 'guclumutfak.com'}`}
                 </div>
                 {siteSearchLoading && siteResults.length === 0 ? (
-                  <div className="px-3 py-3 text-xs text-sky-600">Sitedeki ürünler taranıyor...</div>
+                  <div className={`px-3 py-3 text-xs ${siteSearchSource === 'cafemarkt' ? 'text-amber-600' : 'text-sky-600'}`}>Sitedeki ürünler taranıyor...</div>
                 ) : siteResults.length === 0 ? (
                   <div className="px-3 py-3 text-xs text-gray-400">Sitede bu aramaya uygun ürün yok</div>
                 ) : (
@@ -1700,24 +1778,30 @@ export default function YeniTeklifPage() {
                       key={p.id}
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => selectSuggestion(p)}
-                      className="w-full text-left px-3 py-2.5 bg-sky-50 hover:bg-sky-100 border-b border-sky-100 last:border-0 transition flex items-center gap-3"
+                      className={`w-full text-left px-3 py-2.5 border-b last:border-0 transition flex items-center gap-3 ${
+                        siteSearchSource === 'cafemarkt'
+                          ? 'bg-amber-50 hover:bg-amber-100 border-amber-100'
+                          : 'bg-sky-50 hover:bg-sky-100 border-sky-100'
+                      }`}
                     >
                       <div className="w-10 h-10 rounded border bg-white overflow-hidden flex-shrink-0 flex items-center justify-center">
                         {p.image ? (
-                          <img src={p.image} alt="" className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          <img src={cafeMarktProxiedImage(p.image)} alt="" className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                         ) : (
-                          <Globe className="w-4 h-4 text-sky-300" />
+                          <Globe className={`w-4 h-4 ${siteSearchSource === 'cafemarkt' ? 'text-amber-300' : 'text-sky-300'}`} />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-sm text-sky-900 line-clamp-1">{p.name}</div>
+                        <div className={`font-semibold text-sm line-clamp-1 ${siteSearchSource === 'cafemarkt' ? 'text-amber-900' : 'text-sky-900'}`}>{p.name}</div>
                         <div className="flex items-center gap-2 mt-0.5">
-                          <span className="text-[10px] bg-sky-200 text-sky-800 px-1.5 py-0.5 rounded font-bold">Site</span>
-                          {p.manufacturer && <span className="text-[10px] text-sky-700">{p.manufacturer}</span>}
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${siteSearchSource === 'cafemarkt' ? 'bg-amber-200 text-amber-800' : 'bg-sky-200 text-sky-800'}`}>
+                            {siteSearchSource === 'cafemarkt' ? 'CafeMarkt' : 'Güçlü Mutfak'}
+                          </span>
+                          {p.manufacturer && <span className={`text-[10px] ${siteSearchSource === 'cafemarkt' ? 'text-amber-700' : 'text-sky-700'}`}>{p.manufacturer}</span>}
                           {p.sku && <span className="text-[10px] text-gray-400 font-mono">{p.sku}</span>}
                         </div>
                       </div>
-                      <div className="text-sm font-bold text-sky-900 whitespace-nowrap">
+                      <div className={`text-sm font-bold whitespace-nowrap ${siteSearchSource === 'cafemarkt' ? 'text-amber-900' : 'text-sky-900'}`}>
                         ₺{productPriceToTry(ensureWebsiteNetPrice(p).price, p.currency).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
                       </div>
                     </button>
@@ -1725,6 +1809,7 @@ export default function YeniTeklifPage() {
                 )}
               </div>
             )}
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowListImport(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-300 rounded-lg text-xs font-bold text-blue-700 hover:bg-blue-100 transition">
@@ -1799,7 +1884,7 @@ export default function YeniTeklifPage() {
                   >
                     <div className="w-10 h-10 rounded border bg-gray-50 overflow-hidden flex-shrink-0 flex items-center justify-center">
                       {p.image ? (
-                        <img src={p.image} alt="" className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        <img src={cafeMarktProxiedImage(p.image)} alt="" className="w-full h-full object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                       ) : (
                         <div className="w-full h-full bg-gray-100" />
                       )}
@@ -1996,7 +2081,7 @@ export default function YeniTeklifPage() {
                     </td>
                     <td className="py-3 px-2">
                       <div className="relative w-12 h-12 border rounded bg-white overflow-hidden group">
-                        {item.image ? <img src={item.image} className="w-full h-full object-contain" /> : <div className="w-full h-full bg-gray-100" />}
+                        {item.image ? <img src={cafeMarktProxiedImage(item.image)} className="w-full h-full object-contain" /> : <div className="w-full h-full bg-gray-100" />}
                         <button onClick={() => { const url = prompt('Görsel URL:', item.image); if (url !== null) updateItem(item.id, 'image', url); }} className="absolute inset-0 bg-black/40 text-white text-[8px] font-bold opacity-0 group-hover:opacity-100 transition flex items-center justify-center">Görseli değiştir</button>
                       </div>
                     </td>
@@ -2417,7 +2502,7 @@ export default function YeniTeklifPage() {
                               <button type="button" onClick={() => movePackageItem(idx, 1)} disabled={idx === editingPackage.items.length - 1} className="p-0.5 rounded hover:bg-gray-100 disabled:opacity-30" title="Aşağı"><ChevronDown className="w-3.5 h-3.5 text-gray-400" /></button>
                             </div>
                             <div className="relative w-12 h-12 flex-shrink-0 border rounded bg-white overflow-hidden group">
-                              {item.image ? <img src={item.image} className="w-full h-full object-contain" /> : <div className="w-full h-full bg-gray-100" />}
+                              {item.image ? <img src={cafeMarktProxiedImage(item.image)} className="w-full h-full object-contain" /> : <div className="w-full h-full bg-gray-100" />}
                               <button
                                 onClick={() => { const url = prompt('Yeni görsel URL:', item.image || ''); if (url !== null) updatePackageItem(idx, 'image', url); }}
                                 className="absolute inset-0 bg-black/30 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"

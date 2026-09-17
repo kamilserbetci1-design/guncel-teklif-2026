@@ -12,8 +12,10 @@ export async function GET(req: NextRequest) {
 
   try {
     if (q) {
-      const data = await searchWebsiteProducts(q, 24);
-      return NextResponse.json({ ...data, hasMore: false });
+      const offset = Math.max(0, Number(url.searchParams.get('offset') || '0') || 0);
+      const limit = Math.min(50, Math.max(10, Number(url.searchParams.get('limit') || '40') || 40));
+      const data = await searchWebsiteProducts(q, offset, limit);
+      return NextResponse.json(data);
     }
     const data = await fetchWebsiteProductPage(page, pageSize);
     return NextResponse.json(data);
