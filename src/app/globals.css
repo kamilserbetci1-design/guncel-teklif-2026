@@ -35,6 +35,17 @@
     box-shadow: none !important;
     border-radius: 0 !important;
   }
+  .print-keep {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+  thead {
+    display: table-header-group;
+  }
+  tr, img {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
 }
 
 /* Teklif önizleme — zengin metin (RichEditor) çıktısı */

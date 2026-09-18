@@ -1099,7 +1099,7 @@ export default function YeniTeklifPage() {
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-        pagebreak: { mode: ['css'] },
+        pagebreak: { mode: ['css', 'legacy'], avoid: ['.print-keep', 'tr', 'img'] },
       };
       await html2pdf().set(opt).from(printRef.current).save();
 
@@ -1355,7 +1355,7 @@ export default function YeniTeklifPage() {
 
           {/* Customer + Project */}
           {isMutproLook ? (
-            <div className="mb-8" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', width: '100%', pageBreakAfter: 'avoid' }}>
+            <div className="mb-8 print-keep" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', width: '100%', pageBreakAfter: 'avoid' }}>
               <div style={{ padding: '16px 20px', backgroundColor: mutCream, borderRadius: '6px', borderLeft: `3px solid ${mutOrange}` }}>
                 <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em', color: mutOrange, textTransform: 'uppercase', marginBottom: '8px' }}>Müşteri</div>
                 {customerName && stripHtml(customerName) !== '-' ? (
@@ -1468,7 +1468,7 @@ export default function YeniTeklifPage() {
                 const isHidden = globalHidePrices || item.hide_price;
                 const no = String(pIdx).padStart(2, '0');
                 return (
-                  <div key={item.id} className={item.shipped ? 'opacity-50 line-through' : ''} style={{ width: '100%', display: 'grid', gridTemplateColumns: `${catalogThumb + 28}px 1fr`, alignItems: 'stretch', borderRadius: '6px', overflow: 'hidden', boxSizing: 'border-box', pageBreakInside: 'avoid' }}>
+                  <div key={item.id} className={`print-keep ${item.shipped ? 'opacity-50 line-through' : ''}`} style={{ width: '100%', display: 'grid', gridTemplateColumns: `${catalogThumb + 28}px 1fr`, alignItems: 'stretch', borderRadius: '6px', overflow: 'hidden', boxSizing: 'border-box', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                     <div style={{ position: 'relative', backgroundColor: '#fff', minHeight: `${catalogThumb}px`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '14px', borderRight: `1px solid ${mutHair}` }}>
                       {item.image ? <img src={cafeMarktProxiedImage(item.image)} alt="" crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: `${catalogThumb}px`, maxHeight: `${catalogThumb}px`, objectFit: 'contain', width: 'auto', height: 'auto' }} /> : null}
                       <div style={{ position: 'absolute', left: 10, bottom: 10, backgroundColor: mutNavy, color: '#fff', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', fontVariantNumeric: 'tabular-nums', padding: '3px 7px', borderRadius: '4px' }}>{no}</div>
@@ -1524,10 +1524,10 @@ export default function YeniTeklifPage() {
 
           {/* Totals — KDV hariç ara toplam + KDV satırı + Kargo + Genel Toplam */}
           {!globalHidePrices && (
-            <div className="flex justify-end mb-8" style={{ pageBreakInside: 'avoid' }}>
+            <div className="print-keep mb-8" style={{ display: 'block', width: '24rem', maxWidth: '100%', marginLeft: 'auto', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
               <div
-                className="w-96 max-w-full space-y-2 text-sm"
-                style={isMutproLook ? { backgroundColor: mutCream, padding: '16px 20px', borderRadius: '6px', borderTop: `1px solid ${mutOrange}` } : undefined}
+                className="space-y-2 text-sm"
+                style={isMutproLook ? { backgroundColor: mutCream, padding: '16px 20px', borderRadius: '6px', borderTop: `1px solid ${mutOrange}`, overflow: 'hidden' } : undefined}
               >
                 <div className="flex justify-between"><span className="text-gray-600">Ara Toplam (KDV Hariç):</span><span className="font-semibold" style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(subTotal), sym)}</span></div>
                 {discountAmount > 0 && <div className="flex justify-between text-red-600"><span>İndirim{discountMode === 'percent' ? ` (%${discountValue})` : ''}:</span><span>-{formatCurrency(convertCurrency(discountAmount), sym)}</span></div>}
@@ -1559,7 +1559,7 @@ export default function YeniTeklifPage() {
 
           {/* IBAN / Ödeme Bilgileri */}
           {showIban && (
-            <div className="mb-6 border border-gray-200 rounded-lg p-4" style={{ pageBreakInside: 'avoid' }}>
+            <div className="mb-6 border border-gray-200 rounded-lg p-4 print-keep" style={{ pageBreakInside: 'avoid' }}>
               <h4 className="font-bold text-gray-900 uppercase mb-3 text-xs">Ödeme Bilgileri</h4>
               <div className="space-y-3 text-xs">
                 {(selectedIban === 0 || selectedIban === 1) && (
@@ -1588,7 +1588,7 @@ export default function YeniTeklifPage() {
           )}
 
           {/* Terms + Footer */}
-          <div className="grid grid-cols-2 gap-6 text-[10px] text-gray-500 border-t pt-4 mt-6" style={{ pageBreakInside: 'avoid' }}>
+          <div className="grid grid-cols-2 gap-6 text-[10px] text-gray-500 border-t pt-4 mt-6 print-keep" style={{ pageBreakInside: 'avoid' }}>
             <div>
               <h4 className="font-bold text-gray-900 uppercase mb-1 text-xs">Şartlar ve Koşullar</h4>
               <div className="leading-relaxed rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(conditions) }} />
@@ -1614,7 +1614,7 @@ export default function YeniTeklifPage() {
 
           {/* Brand Logos */}
           {brand.brandLogos.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-gray-200" style={{ pageBreakInside: 'avoid' }}>
+            <div className="mt-6 pt-4 border-t border-gray-200 print-keep" style={{ pageBreakInside: 'avoid' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '20px 16px', alignItems: 'center', justifyItems: 'center' }}>
                 {brand.brandLogos.map((logo, i) => (
                   <img key={i} src={logo} style={{ height: '61px', width: 'auto', objectFit: 'contain', opacity: 0.7 }} alt="" crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
