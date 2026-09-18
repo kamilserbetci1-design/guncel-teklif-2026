@@ -68,13 +68,16 @@ export default function YeniTeklifPage() {
   const isMutproLook = brandId === 'mutpro';
   const mutNavy = '#040023';
   const mutOrange = '#f97316';
+  const mutCream = '#faf7f4';
+  const mutHair = '#eee6de';
   const thStyle = isMutproLook
     ? {
         backgroundColor: '#ffffff',
         color: mutNavy,
         verticalAlign: 'middle' as const,
-        borderBottom: `2px solid ${mutOrange}`,
-        letterSpacing: '0.14em',
+        borderBottom: `1px solid ${mutOrange}`,
+        letterSpacing: '0.08em',
+        fontWeight: 700,
       }
     : {
         backgroundColor: brand.tableHeaderBgHex,
@@ -1272,7 +1275,49 @@ export default function YeniTeklifPage() {
         <div className="overflow-x-auto -mx-1 sm:mx-0">
         <div ref={printRef} className="bg-white p-4 sm:p-6 rounded-xl shadow-lg page-container min-w-[720px]">
           {/* Header */}
-          <div className="mb-6 pb-4" style={{ borderBottom: isMutproLook ? `2px solid ${mutOrange}` : `2px solid ${brand.accentColor}` }}>
+          {isMutproLook ? (
+            <div className="mb-6 pb-4" style={{ borderBottom: `1px solid ${mutOrange}` }}>
+              <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+                <tbody>
+                  <tr>
+                    <td style={{ width: '50%', verticalAlign: 'middle', padding: '0 24px 0 0' }}>
+                      <img src={brand.logo} alt={brand.name} style={{ maxHeight: '72px', maxWidth: '280px', width: 'auto', height: 'auto', objectFit: 'contain', display: 'block' }} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    </td>
+                    <td style={{ width: '50%', verticalAlign: 'middle', padding: 0, textAlign: 'right' }}>
+                      <h1 style={{ margin: 0, padding: 0, lineHeight: 1, fontSize: '18px', fontWeight: 800, letterSpacing: '0.04em', color: mutNavy }}>{proposalTitle}</h1>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style={{ width: '50%', verticalAlign: 'top', padding: '14px 24px 0 0' }}>
+                      <div style={{ fontSize: '11px', lineHeight: 1.6, color: '#6b7280' }}>
+                        {brand.address.map((line, i) => <div key={i}>{line}</div>)}
+                        {(brand.phone || brand.email) && <div>{[brand.phone, brand.email].filter(Boolean).join(' • ')}</div>}
+                        {brand.website && <div style={{ fontWeight: 600, color: mutNavy }}>{brand.website}</div>}
+                      </div>
+                    </td>
+                    <td style={{ width: '50%', verticalAlign: 'top', padding: '14px 0 0' }}>
+                      <table style={{ marginLeft: 'auto', borderCollapse: 'collapse', fontSize: '11px', lineHeight: 1.6 }}>
+                        <tbody>
+                          {[
+                            ['Teklif No', proposalNo],
+                            ['Tarih', proposalDate],
+                            ['Geçerlilik', getValidityDate()],
+                            ...(preparedBy ? [['Hazırlayan', preparedBy] as [string, string]] : []),
+                          ].map(([label, value]) => (
+                            <tr key={label}>
+                              <td style={{ padding: '0 14px 0 0', textAlign: 'right', color: '#9ca3af', fontWeight: 600, whiteSpace: 'nowrap' }}>{label}</td>
+                              <td style={{ padding: 0, textAlign: 'right', color: mutNavy, fontWeight: 600, whiteSpace: 'nowrap' }}>{value}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          ) : (
+          <div className="mb-6 pb-4" style={{ borderBottom: `2px solid ${brand.accentColor}` }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div style={{ maxWidth: '55%' }}>
                 {isBlankBrand ? (
@@ -1306,30 +1351,27 @@ export default function YeniTeklifPage() {
             </div>
             )}
           </div>
+          )}
 
           {/* Customer + Project */}
           {isMutproLook ? (
-            <table className="w-full mb-8" style={{ tableLayout: 'fixed', borderCollapse: 'collapse', pageBreakAfter: 'avoid' }}>
-              <tbody>
-                <tr>
-                  <td style={{ width: '50%', verticalAlign: 'top', padding: '14px 24px 14px 16px', backgroundColor: '#faf7f4' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.16em', color: mutOrange, textTransform: 'uppercase', marginBottom: '8px' }}>Müşteri</div>
-                    {customerName && stripHtml(customerName) !== '-' ? (
-                      <div className="text-sm font-bold" style={{ color: mutNavy }} dangerouslySetInnerHTML={{ __html: renderRichHtml(customerName) }} />
-                    ) : (
-                      <div className="text-sm font-bold" style={{ color: mutNavy }}>-</div>
-                    )}
-                    {customerPhone?.trim() && customerPhone.trim() !== '-' && <div className="text-xs text-gray-600">{customerPhone}</div>}
-                    {customerCity?.trim() && customerCity.trim() !== '-' && <div className="text-xs text-gray-600" style={{ whiteSpace: 'pre-line' }}>{customerCity}</div>}
-                    {customerAddress?.trim() && customerAddress.trim() !== '-' && <div className="text-xs text-gray-500 mt-1">{customerAddress}</div>}
-                  </td>
-                  <td style={{ width: '50%', verticalAlign: 'top', padding: '14px 16px 14px 24px', backgroundColor: '#faf7f4' }}>
-                    <div style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '0.16em', color: mutOrange, textTransform: 'uppercase', marginBottom: '8px' }}>Proje</div>
-                    <div className="text-sm font-bold" style={{ color: mutNavy }}>{projectName || '-'}</div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="mb-8" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', width: '100%', pageBreakAfter: 'avoid' }}>
+              <div style={{ padding: '16px 20px', backgroundColor: mutCream, borderRadius: '6px', borderLeft: `3px solid ${mutOrange}` }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em', color: mutOrange, textTransform: 'uppercase', marginBottom: '8px' }}>Müşteri</div>
+                {customerName && stripHtml(customerName) !== '-' ? (
+                  <div className="text-sm font-bold" style={{ color: mutNavy }} dangerouslySetInnerHTML={{ __html: renderRichHtml(customerName) }} />
+                ) : (
+                  <div className="text-sm font-bold" style={{ color: mutNavy }}>-</div>
+                )}
+                {customerPhone?.trim() && customerPhone.trim() !== '-' && <div className="text-xs text-gray-600 mt-1">{customerPhone}</div>}
+                {customerCity?.trim() && customerCity.trim() !== '-' && <div className="text-xs text-gray-600" style={{ whiteSpace: 'pre-line' }}>{customerCity}</div>}
+                {customerAddress?.trim() && customerAddress.trim() !== '-' && <div className="text-xs text-gray-500 mt-1">{customerAddress}</div>}
+              </div>
+              <div style={{ padding: '16px 20px', backgroundColor: mutCream, borderRadius: '6px', borderLeft: `3px solid ${mutOrange}` }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em', color: mutOrange, textTransform: 'uppercase', marginBottom: '8px' }}>Proje</div>
+                <div className="text-sm font-bold" style={{ color: mutNavy }}>{projectName || '-'}</div>
+              </div>
+            </div>
           ) : (
           <div className="grid grid-cols-2 gap-6 mb-8" style={{ pageBreakAfter: 'avoid' }}>
             <div className="bg-gray-50 rounded-lg p-4">
@@ -1346,17 +1388,25 @@ export default function YeniTeklifPage() {
           </div>
           )}
 
-          {/* Items — Liste veya Katalog Görünüm */}
+          {/* Items — Liste */}
           {items.length > 0 && viewMode === 'liste' && (
-            <table className="w-full text-sm mb-8" style={{ borderCollapse: 'collapse' }}>
+            <table className="w-full text-sm mb-8" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+              <colgroup>
+                <col style={{ width: isMutproLook ? '48px' : '40px' }} />
+                {!isCompactMode && <col style={{ width: `${(isMutproLook ? listThumb : 80) + 24}px` }} />}
+                <col />
+                <col style={{ width: isMutproLook ? '64px' : '56px' }} />
+                {!globalHidePrices && <col style={{ width: isMutproLook ? '128px' : '128px' }} />}
+                {!globalHidePrices && <col style={{ width: isMutproLook ? '132px' : '128px' }} />}
+              </colgroup>
               <thead>
                 <tr>
-                  <th style={thStyle} className="py-4 px-3 text-center w-10 text-[11px] font-bold tracking-wide uppercase">#</th>
-                  {!isCompactMode && <th style={thStyle} className="py-4 px-3 text-center w-24 text-[11px] font-bold tracking-wide uppercase">Görsel</th>}
-                  <th style={thStyle} className="py-4 px-3 text-center text-[11px] font-bold tracking-wide uppercase">Ürün Adı / Açıklama (Opsiyonel)</th>
-                  <th style={thStyle} className="py-4 px-3 text-center w-14 text-[11px] font-bold tracking-wide uppercase">Adet</th>
-                  {!globalHidePrices && <th style={thStyle} className="py-4 px-3 text-center w-32 text-[11px] font-bold tracking-wide uppercase">Birim Fiyat</th>}
-                  {!globalHidePrices && <th style={thStyle} className="py-4 px-3 text-center w-32 text-[11px] font-bold tracking-wide uppercase">Toplam Fiyat</th>}
+                  <th style={thStyle} className="py-3 px-3 text-center text-[10px] font-bold uppercase">#</th>
+                  {!isCompactMode && <th style={thStyle} className="py-3 px-3 text-center text-[10px] font-bold uppercase">Görsel</th>}
+                  <th style={thStyle} className={`py-3 px-3 text-[10px] font-bold uppercase ${isMutproLook ? 'text-left' : 'text-center'}`}>{isMutproLook ? 'Ürün / Açıklama' : 'Ürün Adı / Açıklama (Opsiyonel)'}</th>
+                  <th style={thStyle} className="py-3 px-3 text-center text-[10px] font-bold uppercase">Adet</th>
+                  {!globalHidePrices && <th style={{ ...thStyle, paddingRight: isMutproLook ? '8px' : undefined }} className={`py-3 px-3 text-[10px] font-bold uppercase ${isMutproLook ? 'text-right' : 'text-center'}`}>Birim Fiyat</th>}
+                  {!globalHidePrices && <th style={{ ...thStyle, paddingRight: isMutproLook ? 0 : undefined }} className={`py-3 text-[10px] font-bold uppercase ${isMutproLook ? 'text-right pr-0' : 'text-center px-3'}`}>Toplam Fiyat</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1364,8 +1414,8 @@ export default function YeniTeklifPage() {
                   if (item.type === 'section') {
                     const colCount = (!isCompactMode ? 1 : 0) + (!globalHidePrices ? 2 : 0) + 3;
                     return (
-                      <tr key={item.id} style={{ borderBottom: `2px solid ${brand.tableBorderHex}`, backgroundColor: brand.tableHeaderBgHex + '22', pageBreakInside: 'avoid' }}>
-                        <td colSpan={colCount} className="py-3 px-4 text-center font-bold text-sm uppercase tracking-wide text-gray-700">{item.name}</td>
+                      <tr key={item.id} style={{ borderBottom: isMutproLook ? `1px solid ${mutHair}` : `2px solid ${brand.tableBorderHex}`, backgroundColor: isMutproLook ? mutCream : brand.tableHeaderBgHex + '22', pageBreakInside: 'avoid' }}>
+                        <td colSpan={colCount} className="py-3 px-4 text-center font-bold text-sm uppercase tracking-wide" style={isMutproLook ? { color: mutNavy, letterSpacing: '0.08em' } : { color: '#374151' }}>{item.name}</td>
                       </tr>
                     );
                   }
@@ -1373,26 +1423,27 @@ export default function YeniTeklifPage() {
                   const netUnitPrice = item.price * (1 - item.item_discount / 100);
                   const netLineTotal = item.total;
                   const isHidden = globalHidePrices || item.hide_price;
+                  const thumb = listThumb;
                   return (
-                    <tr key={item.id} className={item.shipped ? 'line-through opacity-50' : ''} style={{ borderBottom: useRedRowLines ? `1px solid ${brand.accentColor}4d` : `1px solid ${brand.tableBorderHex}`, backgroundColor: useRedRowLines ? '#ffffff' : (idx % 2 === 1 ? brand.tableStripeBgHex : '#ffffff'), pageBreakInside: 'avoid' }}>
-                      <td className="py-5 px-3 text-center font-medium text-sm" style={isMutproLook ? { color: mutOrange, fontWeight: 800, letterSpacing: '0.12em' } : undefined}>
+                    <tr key={item.id} className={item.shipped ? 'line-through opacity-50' : ''} style={{ borderBottom: isMutproLook ? `1px solid ${mutHair}` : (useRedRowLines ? `1px solid ${brand.accentColor}4d` : `1px solid ${brand.tableBorderHex}`), backgroundColor: useRedRowLines ? '#ffffff' : (idx % 2 === 1 ? brand.tableStripeBgHex : '#ffffff'), pageBreakInside: 'avoid' }}>
+                      <td className="py-5 px-3 text-center font-medium text-sm" style={isMutproLook ? { color: mutNavy, fontWeight: 700, fontVariantNumeric: 'tabular-nums', fontSize: '12px' } : undefined}>
                         {isMutproLook ? String(pIdx).padStart(2, '0') : pIdx}
                       </td>
                       {!isCompactMode && (
                         <td className="py-4 px-3">
-                          <div style={{ width: `${listThumb}px`, height: `${listThumb}px`, border: '1px solid #e5e7eb', borderRadius: '4px', backgroundColor: '#fff', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <div style={{ width: `${thumb}px`, height: `${thumb}px`, border: isMutproLook ? `1px solid ${mutHair}` : '1px solid #e5e7eb', borderRadius: isMutproLook ? '6px' : '4px', backgroundColor: '#fff', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {item.image ? <img src={cafeMarktProxiedImage(item.image)} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', width: 'auto', height: 'auto' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6' }} />}
                           </div>
                         </td>
                       )}
                       <td className="py-5 px-3">
-                        <div className="font-semibold text-gray-900 text-sm">{item.name}</div>
+                        <div className="font-semibold text-sm" style={{ color: isMutproLook ? mutNavy : undefined }}>{item.name}</div>
                         {item.sku && <div className="text-[10px] text-gray-400 mt-0.5">Ürün Kodu: {item.sku}</div>}
-                        {item.description && <div className="text-xs text-gray-500 mt-0.5 rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(item.description) }} />}
+                        {item.description && <div className="text-xs text-gray-500 mt-1 rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(item.description) }} />}
                       </td>
-                      <td className="py-5 px-3 text-center font-semibold text-sm">{item.quantity}</td>
-                      {!isHidden && <td className="py-5 px-3 text-right font-bold text-sm">{formatCurrency(convertCurrency(netUnitPrice), sym)}</td>}
-                      {!isHidden && <td className="py-5 px-3 text-right font-bold text-sm">{formatCurrency(convertCurrency(netLineTotal), sym)}</td>}
+                      <td className="py-5 px-3 text-center font-semibold text-sm" style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{item.quantity}</td>
+                      {!isHidden && <td className="py-5 px-3 text-right font-bold text-sm" style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(netUnitPrice), sym)}</td>}
+                      {!isHidden && <td className={`py-5 font-bold text-sm ${isMutproLook ? 'text-right pr-0' : 'px-3 text-right'}`} style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums', paddingRight: 0 } : undefined}>{formatCurrency(convertCurrency(netLineTotal), sym)}</td>}
                       {isHidden && !globalHidePrices && <td className="py-3 px-2 text-center text-gray-400">-</td>}
                       {isHidden && !globalHidePrices && <td className="py-3 px-2 text-center text-gray-400">-</td>}
                     </tr>
@@ -1402,8 +1453,43 @@ export default function YeniTeklifPage() {
             </table>
           )}
 
-          {/* Katalog Görünüm */}
-          {items.length > 0 && viewMode === 'katalog' && (
+          {/* Katalog — MutPro: ürün önde, numara görselde */}
+          {items.length > 0 && viewMode === 'katalog' && isMutproLook && (
+            <div className="mb-8" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {(() => { let pIdx = 0; return items.map((item) => {
+                if (item.type === 'section') {
+                  return (
+                    <div key={item.id} style={{ padding: '12px 16px', backgroundColor: mutCream, borderRadius: '6px', color: mutNavy, fontWeight: 700, fontSize: '12px', letterSpacing: '0.08em', textAlign: 'center', textTransform: 'uppercase', pageBreakInside: 'avoid' }}>{item.name}</div>
+                  );
+                }
+                pIdx += 1;
+                const netUnitPrice = item.price * (1 - item.item_discount / 100);
+                const netLineTotal = item.total;
+                const isHidden = globalHidePrices || item.hide_price;
+                const no = String(pIdx).padStart(2, '0');
+                return (
+                  <div key={item.id} className={item.shipped ? 'opacity-50 line-through' : ''} style={{ width: '100%', display: 'grid', gridTemplateColumns: `${catalogThumb + 28}px 1fr`, alignItems: 'stretch', borderRadius: '6px', overflow: 'hidden', boxSizing: 'border-box', pageBreakInside: 'avoid' }}>
+                    <div style={{ position: 'relative', backgroundColor: '#fff', minHeight: `${catalogThumb}px`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '14px', borderRight: `1px solid ${mutHair}` }}>
+                      {item.image ? <img src={cafeMarktProxiedImage(item.image)} alt="" crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: `${catalogThumb}px`, maxHeight: `${catalogThumb}px`, objectFit: 'contain', width: 'auto', height: 'auto' }} /> : null}
+                      <div style={{ position: 'absolute', left: 10, bottom: 10, backgroundColor: mutNavy, color: '#fff', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', fontVariantNumeric: 'tabular-nums', padding: '3px 7px', borderRadius: '4px' }}>{no}</div>
+                    </div>
+                    <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', backgroundColor: mutCream, padding: '14px 16px' }}>
+                      <div className="font-bold text-base" style={{ color: mutNavy, lineHeight: 1.35 }}>{item.name}</div>
+                      {item.sku && <div className="text-[11px] text-gray-400 mt-1">Ürün Kodu: {item.sku}</div>}
+                      {item.description && <div className="text-xs text-gray-500 mt-2 rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(item.description) }} />}
+                      <div style={{ marginTop: 'auto', paddingTop: '14px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '16px', borderTop: `1px solid ${mutHair}` }}>
+                        <span className="text-sm text-gray-500" style={{ fontVariantNumeric: 'tabular-nums' }}>{item.quantity} Adet{!isHidden ? ` × ${formatCurrency(convertCurrency(netUnitPrice), sym)}` : ''}</span>
+                        {!isHidden && <span className="text-lg font-extrabold" style={{ color: mutNavy, fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(convertCurrency(netLineTotal), sym)}</span>}
+                      </div>
+                    </div>
+                  </div>
+                );
+              }); })()}
+            </div>
+          )}
+
+          {/* Katalog Görünüm — diğer markalar */}
+          {items.length > 0 && viewMode === 'katalog' && !isMutproLook && (
             <div className="space-y-4 mb-8">
               {(() => { let pIdx = 0; return items.map((item) => {
                 if (item.type === 'section') {
@@ -1416,18 +1502,18 @@ export default function YeniTeklifPage() {
                 const netLineTotal = item.total;
                 const isHidden = globalHidePrices || item.hide_price;
                 return (
-                  <div key={item.id} className={`flex gap-5 p-4 rounded-xl border ${item.shipped ? 'opacity-50 line-through' : ''}`} style={{ borderColor: brand.tableBorderHex, pageBreakInside: 'avoid' }}>
-                    <div style={{ width: `${catalogThumb}px`, height: `${catalogThumb}px`, flexShrink: 0, border: '1px solid #e5e7eb', borderRadius: '8px', backgroundColor: '#fff', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <div key={item.id} className={`flex gap-5 p-4 ${isMutproLook ? '' : 'rounded-xl border'} ${item.shipped ? 'opacity-50 line-through' : ''}`} style={{ border: isMutproLook ? `1px solid ${mutHair}` : undefined, borderRadius: isMutproLook ? '8px' : undefined, borderColor: isMutproLook ? mutHair : brand.tableBorderHex, pageBreakInside: 'avoid' }}>
+                    <div style={{ width: `${catalogThumb}px`, height: `${catalogThumb}px`, flexShrink: 0, border: isMutproLook ? `1px solid ${mutHair}` : '1px solid #e5e7eb', borderRadius: isMutproLook ? '6px' : '8px', backgroundColor: '#fff', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {item.image ? <img src={cafeMarktProxiedImage(item.image)} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', width: 'auto', height: 'auto' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6' }} />}
                     </div>
                     <div className="flex-1 min-w-0">
-                      {isMutproLook && <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '0.18em', color: mutOrange, marginBottom: '4px' }}>{String(pIdx).padStart(2, '0')}</div>}
-                      <div className="font-bold text-gray-900 text-base">{item.name}</div>
+                      {isMutproLook && <div style={{ fontSize: '11px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: mutNavy, marginBottom: '4px' }}>{String(pIdx).padStart(2, '0')}</div>}
+                      <div className="font-bold text-base" style={{ color: isMutproLook ? mutNavy : undefined }}>{item.name}</div>
                       {item.sku && <div className="text-xs text-gray-400 mt-0.5">Ürün Kodu: {item.sku}</div>}
                       {item.description && <div className="text-sm text-gray-500 mt-1 rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(item.description) }} />}
                       <div className="mt-3 flex items-baseline gap-2">
                         <span className="text-sm text-gray-500">{item.quantity} Adet x {!isHidden ? formatCurrency(convertCurrency(netUnitPrice), sym) : '-'}</span>
-                        {!isHidden && <span className="text-lg font-extrabold text-gray-900 ml-auto">{formatCurrency(convertCurrency(netLineTotal), sym)}</span>}
+                        {!isHidden && <span className="text-lg font-extrabold ml-auto" style={{ color: isMutproLook ? mutNavy : undefined }}>{formatCurrency(convertCurrency(netLineTotal), sym)}</span>}
                       </div>
                     </div>
                   </div>
@@ -1439,14 +1525,17 @@ export default function YeniTeklifPage() {
           {/* Totals — KDV hariç ara toplam + KDV satırı + Kargo + Genel Toplam */}
           {!globalHidePrices && (
             <div className="flex justify-end mb-8" style={{ pageBreakInside: 'avoid' }}>
-              <div className="w-96 max-w-full space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-gray-600">Ara Toplam (KDV Hariç):</span><span className="font-semibold">{formatCurrency(convertCurrency(subTotal), sym)}</span></div>
+              <div
+                className="w-96 max-w-full space-y-2 text-sm"
+                style={isMutproLook ? { backgroundColor: mutCream, padding: '16px 20px', borderRadius: '6px', borderTop: `1px solid ${mutOrange}` } : undefined}
+              >
+                <div className="flex justify-between"><span className="text-gray-600">Ara Toplam (KDV Hariç):</span><span className="font-semibold" style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(subTotal), sym)}</span></div>
                 {discountAmount > 0 && <div className="flex justify-between text-red-600"><span>İndirim{discountMode === 'percent' ? ` (%${discountValue})` : ''}:</span><span>-{formatCurrency(convertCurrency(discountAmount), sym)}</span></div>}
                 {discountAmount > 0 && <div className="flex justify-between border-t pt-1"><span className="text-gray-600">İndirimli Toplam:</span><span className="font-semibold">{formatCurrency(convertCurrency(discountedSubTotal), sym)}</span></div>}
-                {showVAT && <div className="flex justify-between"><span className="text-gray-600">KDV (%20):</span><span>{formatCurrency(convertCurrency(kdvTotal), sym)}</span></div>}
-                {shippingCost > 0 && <div className="flex justify-between"><span className="text-gray-600">Kargo / Taşıma Bedeli:</span><span>{formatCurrency(convertCurrency(shippingCost), sym)}</span></div>}
+                {showVAT && <div className="flex justify-between"><span className="text-gray-600">KDV (%20):</span><span style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(kdvTotal), sym)}</span></div>}
+                {shippingCost > 0 && <div className="flex justify-between"><span className="text-gray-600">Kargo / Taşıma Bedeli:</span><span style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(shippingCost), sym)}</span></div>}
                 {installment > 0 && <div className="flex justify-between text-orange-600"><span>Taksit Farkı ({installment} taksit, %{installment*3}):</span><span>+{formatCurrency(convertCurrency(installmentExtra), sym)}</span></div>}
-                <div className="flex justify-between text-lg font-extrabold border-t-2 border-gray-800 pt-2 mt-2"><span>GENEL TOPLAM:</span><span>{formatCurrency(convertCurrency(finalTotal), sym)}</span></div>
+                <div className={`flex justify-between text-lg font-extrabold pt-2 mt-2 ${isMutproLook ? '' : 'border-t-2 border-gray-800'}`} style={isMutproLook ? { color: mutNavy, borderTop: `1px solid ${mutNavy}` } : undefined}><span>GENEL TOPLAM:</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(convertCurrency(finalTotal), sym)}</span></div>
                 <div className="text-right text-xs text-gray-500 italic">{numberToText(convertCurrency(finalTotal), currency)}</div>
                 {totalEquivalents.length > 0 && (
                   <div className="flex flex-wrap justify-end items-center gap-x-2 text-[11px] text-gray-500 pt-1.5">
