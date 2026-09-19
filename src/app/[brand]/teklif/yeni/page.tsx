@@ -70,14 +70,17 @@ export default function YeniTeklifPage() {
   const mutOrange = '#f97316';
   const mutCream = '#faf7f4';
   const mutHair = '#eee6de';
+  const mutRowLine = '#f0c4a0';
+  const mutCellPad = isMutproLook ? { padding: '14px 12px' } : undefined;
   const thStyle = isMutproLook
     ? {
-        backgroundColor: '#ffffff',
-        color: mutNavy,
+        backgroundColor: mutOrange,
+        color: '#ffffff',
         verticalAlign: 'middle' as const,
-        borderBottom: `1px solid ${mutOrange}`,
+        borderBottom: 'none',
         letterSpacing: '0.08em',
-        fontWeight: 700,
+        fontWeight: 800,
+        padding: '14px 12px',
       }
     : {
         backgroundColor: brand.tableHeaderBgHex,
@@ -1355,8 +1358,8 @@ export default function YeniTeklifPage() {
 
           {/* Customer + Project */}
           {isMutproLook ? (
-            <div className="mb-8 print-keep" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', width: '100%', pageBreakAfter: 'avoid' }}>
-              <div style={{ padding: '16px 20px', backgroundColor: mutCream, borderRadius: '6px', borderLeft: `3px solid ${mutOrange}` }}>
+            <div className="mb-8 print-keep" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', width: '100%', boxSizing: 'border-box', pageBreakAfter: 'avoid' }}>
+              <div style={{ padding: '16px 20px', backgroundColor: mutCream, borderRadius: '6px', borderLeft: `3px solid ${mutOrange}`, boxSizing: 'border-box' }}>
                 <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em', color: mutOrange, textTransform: 'uppercase', marginBottom: '8px' }}>Müşteri</div>
                 {customerName && stripHtml(customerName) !== '-' ? (
                   <div className="text-sm font-bold" style={{ color: mutNavy }} dangerouslySetInnerHTML={{ __html: renderRichHtml(customerName) }} />
@@ -1367,7 +1370,7 @@ export default function YeniTeklifPage() {
                 {customerCity?.trim() && customerCity.trim() !== '-' && <div className="text-xs text-gray-600" style={{ whiteSpace: 'pre-line' }}>{customerCity}</div>}
                 {customerAddress?.trim() && customerAddress.trim() !== '-' && <div className="text-xs text-gray-500 mt-1">{customerAddress}</div>}
               </div>
-              <div style={{ padding: '16px 20px', backgroundColor: mutCream, borderRadius: '6px', borderLeft: `3px solid ${mutOrange}` }}>
+              <div style={{ padding: '16px 20px', backgroundColor: mutCream, borderRadius: '6px', borderLeft: `3px solid ${mutOrange}`, boxSizing: 'border-box' }}>
                 <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em', color: mutOrange, textTransform: 'uppercase', marginBottom: '8px' }}>Proje</div>
                 <div className="text-sm font-bold" style={{ color: mutNavy }}>{projectName || '-'}</div>
               </div>
@@ -1390,23 +1393,23 @@ export default function YeniTeklifPage() {
 
           {/* Items — Liste */}
           {items.length > 0 && viewMode === 'liste' && (
-            <table className="w-full text-sm mb-8" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
+            <table className="w-full text-sm mb-8" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
               <colgroup>
-                <col style={{ width: isMutproLook ? '48px' : '40px' }} />
+                <col style={{ width: isMutproLook ? '52px' : '40px' }} />
                 {!isCompactMode && <col style={{ width: `${(isMutproLook ? listThumb : 80) + 24}px` }} />}
                 <col />
-                <col style={{ width: isMutproLook ? '64px' : '56px' }} />
-                {!globalHidePrices && <col style={{ width: isMutproLook ? '128px' : '128px' }} />}
-                {!globalHidePrices && <col style={{ width: isMutproLook ? '132px' : '128px' }} />}
+                <col style={{ width: isMutproLook ? '72px' : '56px' }} />
+                {!globalHidePrices && <col style={{ width: isMutproLook ? '140px' : '128px' }} />}
+                {!globalHidePrices && <col style={{ width: isMutproLook ? '140px' : '128px' }} />}
               </colgroup>
               <thead>
                 <tr>
-                  <th style={thStyle} className="py-3 px-3 text-center text-[10px] font-bold uppercase">#</th>
-                  {!isCompactMode && <th style={thStyle} className="py-3 px-3 text-center text-[10px] font-bold uppercase">Görsel</th>}
-                  <th style={thStyle} className={`py-3 px-3 text-[10px] font-bold uppercase ${isMutproLook ? 'text-left' : 'text-center'}`}>{isMutproLook ? 'Ürün / Açıklama' : 'Ürün Adı / Açıklama (Opsiyonel)'}</th>
-                  <th style={thStyle} className="py-3 px-3 text-center text-[10px] font-bold uppercase">Adet</th>
-                  {!globalHidePrices && <th style={{ ...thStyle, paddingRight: isMutproLook ? '8px' : undefined }} className={`py-3 px-3 text-[10px] font-bold uppercase ${isMutproLook ? 'text-right' : 'text-center'}`}>Birim Fiyat</th>}
-                  {!globalHidePrices && <th style={{ ...thStyle, paddingRight: isMutproLook ? 0 : undefined }} className={`py-3 text-[10px] font-bold uppercase ${isMutproLook ? 'text-right pr-0' : 'text-center px-3'}`}>Toplam Fiyat</th>}
+                  <th style={thStyle} className={`text-center text-[11px] font-extrabold uppercase ${isMutproLook ? '' : 'py-4 px-3'}`}>#</th>
+                  {!isCompactMode && <th style={thStyle} className={`text-center text-[11px] font-extrabold uppercase ${isMutproLook ? '' : 'py-4 px-3'}`}>Görsel</th>}
+                  <th style={thStyle} className={`text-[11px] font-extrabold uppercase ${isMutproLook ? 'text-left' : 'text-center py-4 px-3'}`}>{isMutproLook ? 'Ürün / Açıklama' : 'Ürün Adı / Açıklama (Opsiyonel)'}</th>
+                  <th style={thStyle} className={`text-center text-[11px] font-extrabold uppercase ${isMutproLook ? '' : 'py-4 px-3'}`}>Adet</th>
+                  {!globalHidePrices && <th style={thStyle} className={`text-[11px] font-extrabold uppercase ${isMutproLook ? 'text-right' : 'text-center py-4 px-3'}`}>Birim Fiyat</th>}
+                  {!globalHidePrices && <th style={thStyle} className={`text-[11px] font-extrabold uppercase ${isMutproLook ? 'text-right' : 'text-center py-4 px-3'}`}>Toplam Fiyat</th>}
                 </tr>
               </thead>
               <tbody>
@@ -1414,7 +1417,7 @@ export default function YeniTeklifPage() {
                   if (item.type === 'section') {
                     const colCount = (!isCompactMode ? 1 : 0) + (!globalHidePrices ? 2 : 0) + 3;
                     return (
-                      <tr key={item.id} style={{ borderBottom: isMutproLook ? `1px solid ${mutHair}` : `2px solid ${brand.tableBorderHex}`, backgroundColor: isMutproLook ? mutCream : brand.tableHeaderBgHex + '22', pageBreakInside: 'avoid' }}>
+                      <tr key={item.id} style={{ borderBottom: isMutproLook ? `1px solid ${mutRowLine}` : `2px solid ${brand.tableBorderHex}`, backgroundColor: isMutproLook ? mutCream : brand.tableHeaderBgHex + '22', pageBreakInside: 'avoid' }}>
                         <td colSpan={colCount} className="py-3 px-4 text-center font-bold text-sm uppercase tracking-wide" style={isMutproLook ? { color: mutNavy, letterSpacing: '0.08em' } : { color: '#374151' }}>{item.name}</td>
                       </tr>
                     );
@@ -1425,27 +1428,27 @@ export default function YeniTeklifPage() {
                   const isHidden = globalHidePrices || item.hide_price;
                   const thumb = listThumb;
                   return (
-                    <tr key={item.id} className={item.shipped ? 'line-through opacity-50' : ''} style={{ borderBottom: isMutproLook ? `1px solid ${mutHair}` : (useRedRowLines ? `1px solid ${brand.accentColor}4d` : `1px solid ${brand.tableBorderHex}`), backgroundColor: useRedRowLines ? '#ffffff' : (idx % 2 === 1 ? brand.tableStripeBgHex : '#ffffff'), pageBreakInside: 'avoid' }}>
-                      <td className="py-5 px-3 text-center font-medium text-sm" style={isMutproLook ? { color: mutNavy, fontWeight: 700, fontVariantNumeric: 'tabular-nums', fontSize: '12px' } : undefined}>
+                    <tr key={item.id} className={item.shipped ? 'line-through opacity-50' : ''} style={{ borderBottom: isMutproLook ? `1px solid ${mutRowLine}` : (useRedRowLines ? `1px solid ${brand.accentColor}4d` : `1px solid ${brand.tableBorderHex}`), backgroundColor: useRedRowLines ? '#ffffff' : (idx % 2 === 1 ? brand.tableStripeBgHex : '#ffffff'), pageBreakInside: 'avoid' }}>
+                      <td className={`${isMutproLook ? '' : 'py-5 px-3'} text-center font-medium text-sm`} style={{ ...(mutCellPad || {}), ...(isMutproLook ? { color: mutNavy, fontWeight: 700, fontVariantNumeric: 'tabular-nums', fontSize: '12px' } : {}) }}>
                         {isMutproLook ? String(pIdx).padStart(2, '0') : pIdx}
                       </td>
                       {!isCompactMode && (
-                        <td className="py-4 px-3">
-                          <div style={{ width: `${thumb}px`, height: `${thumb}px`, border: isMutproLook ? `1px solid ${mutHair}` : '1px solid #e5e7eb', borderRadius: isMutproLook ? '6px' : '4px', backgroundColor: '#fff', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <td className={isMutproLook ? '' : 'py-4 px-3'} style={mutCellPad}>
+                          <div style={{ width: `${thumb}px`, height: `${thumb}px`, border: isMutproLook ? `1px solid ${mutRowLine}` : '1px solid #e5e7eb', borderRadius: isMutproLook ? '6px' : '4px', backgroundColor: '#fff', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                             {item.image ? <img src={cafeMarktProxiedImage(item.image)} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', width: 'auto', height: 'auto' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6' }} />}
                           </div>
                         </td>
                       )}
-                      <td className="py-5 px-3">
+                      <td className={isMutproLook ? '' : 'py-5 px-3'} style={mutCellPad}>
                         <div className="font-semibold text-sm" style={{ color: isMutproLook ? mutNavy : undefined }}>{item.name}</div>
                         {item.sku && <div className="text-[10px] text-gray-400 mt-0.5">Ürün Kodu: {item.sku}</div>}
                         {item.description && <div className="text-xs text-gray-500 mt-1 rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(item.description) }} />}
                       </td>
-                      <td className="py-5 px-3 text-center font-semibold text-sm" style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{item.quantity}</td>
-                      {!isHidden && <td className="py-5 px-3 text-right font-bold text-sm" style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(netUnitPrice), sym)}</td>}
-                      {!isHidden && <td className={`py-5 font-bold text-sm ${isMutproLook ? 'text-right pr-0' : 'px-3 text-right'}`} style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums', paddingRight: 0 } : undefined}>{formatCurrency(convertCurrency(netLineTotal), sym)}</td>}
-                      {isHidden && !globalHidePrices && <td className="py-3 px-2 text-center text-gray-400">-</td>}
-                      {isHidden && !globalHidePrices && <td className="py-3 px-2 text-center text-gray-400">-</td>}
+                      <td className={`${isMutproLook ? '' : 'py-5 px-3'} text-center font-semibold text-sm`} style={{ ...(mutCellPad || {}), ...(isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : {}) }}>{item.quantity}</td>
+                      {!isHidden && <td className={`${isMutproLook ? '' : 'py-5 px-3'} text-right font-bold text-sm`} style={{ ...(mutCellPad || {}), ...(isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : {}) }}>{formatCurrency(convertCurrency(netUnitPrice), sym)}</td>}
+                      {!isHidden && <td className={`${isMutproLook ? '' : 'py-5 px-3'} text-right font-bold text-sm`} style={{ ...(mutCellPad || {}), ...(isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : {}) }}>{formatCurrency(convertCurrency(netLineTotal), sym)}</td>}
+                      {isHidden && !globalHidePrices && <td className="py-3 px-2 text-center text-gray-400" style={mutCellPad}>-</td>}
+                      {isHidden && !globalHidePrices && <td className="py-3 px-2 text-center text-gray-400" style={mutCellPad}>-</td>}
                     </tr>
                   );
                 }); })()}
@@ -1469,7 +1472,7 @@ export default function YeniTeklifPage() {
                 const no = String(pIdx).padStart(2, '0');
                 return (
                   <div key={item.id} className={`print-keep ${item.shipped ? 'opacity-50 line-through' : ''}`} style={{ width: '100%', display: 'grid', gridTemplateColumns: `${catalogThumb + 28}px 1fr`, alignItems: 'stretch', borderRadius: '6px', overflow: 'hidden', boxSizing: 'border-box', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                    <div style={{ position: 'relative', backgroundColor: '#fff', minHeight: `${catalogThumb}px`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '14px', borderRight: `1px solid ${mutHair}` }}>
+                    <div style={{ position: 'relative', backgroundColor: '#fff', minHeight: `${catalogThumb}px`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '14px', borderRight: `1px solid ${mutRowLine}` }}>
                       {item.image ? <img src={cafeMarktProxiedImage(item.image)} alt="" crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: `${catalogThumb}px`, maxHeight: `${catalogThumb}px`, objectFit: 'contain', width: 'auto', height: 'auto' }} /> : null}
                       <div style={{ position: 'absolute', left: 10, bottom: 10, backgroundColor: mutNavy, color: '#fff', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', fontVariantNumeric: 'tabular-nums', padding: '3px 7px', borderRadius: '4px' }}>{no}</div>
                     </div>
