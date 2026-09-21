@@ -31,7 +31,19 @@ export interface CariTransaction {
   amount: number;
   payment_method?: string | null;
   installments?: string | null;
+  due_date?: string | null;
   attachments?: CariAttachment[];
+}
+
+/** Vade/çek tarihi bugünden önceyse gecikmiş sayılır. */
+export function isOverdueDueDate(due?: string | null): boolean {
+  if (!due) return false;
+  const d = new Date(due);
+  if (Number.isNaN(d.getTime())) return false;
+  d.setHours(0, 0, 0, 0);
+  const t = new Date();
+  t.setHours(0, 0, 0, 0);
+  return d < t;
 }
 
 export interface CariUser {

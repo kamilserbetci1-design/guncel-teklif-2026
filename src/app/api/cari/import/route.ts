@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
         amount: Number(t.amount) || 0,
         payment_method: t.paymentMethod ? String(t.paymentMethod) : null,
         installments: t.installments ? String(t.installments) : null,
+        due_date: t.dueDate || t.due_date ? String(t.dueDate || t.due_date) : null,
       };
     });
 

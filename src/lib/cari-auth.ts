@@ -7,8 +7,9 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 export const COOKIE_NAME = 'cari_session';
-export const SESSION_HOURS = 24; // "Beni Hatırla" işaretsiz: 24 saat
-export const REMEMBER_DAYS = 30; // "Beni Hatırla" işaretli: 30 gün
+export const SESSION_DAYS = 30; // MutPro paneli + cari: ayda bir yeniden giriş
+export const SESSION_HOURS = 24;
+export const REMEMBER_DAYS = 30;
 
 export const isCariConfigured = () => supabaseUrl.length > 0 && serviceKey.length > 0;
 
@@ -38,9 +39,8 @@ export function verifyPassword(password: string, stored: string): boolean {
 }
 
 // --- Oturum token'ı (HMAC imzalı) ---
-export function createSessionToken(username: string, remember = false): string {
-  const ms = remember ? REMEMBER_DAYS * 24 * 60 * 60 * 1000 : SESSION_HOURS * 60 * 60 * 1000;
-  const expires = Date.now() + ms;
+export function createSessionToken(username: string, _remember = false): string {
+  const expires = Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000;
   const payload = Buffer.from(JSON.stringify({ u: username, e: expires })).toString('base64url');
   const sig = createHmac('sha256', sessionSecret()).update(payload).digest('base64url');
   return `${payload}.${sig}`;

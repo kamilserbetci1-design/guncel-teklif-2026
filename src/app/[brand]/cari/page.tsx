@@ -14,17 +14,25 @@ import {
   PAYMENT_METHOD_SHORT,
   isDebtType,
   isPaymentType,
+  isOverdueDueDate,
 } from '@/lib/cari-types';
 import { foldedIncludes } from '@/lib/product-search';
+import { MutProLogin } from '@/components/MutProLogin';
 import {
-  Lock, LogOut, Plus, Pencil, Trash2, Search, Settings, Bolt, X, FileDown,
+  LogOut, Plus, Pencil, Trash2, Search, Settings, Bolt, X, FileDown,
   Printer, Upload, Users, ArrowLeft, TrendingUp, TrendingDown, KeyRound, UserPlus,
-  Wallet, ChevronRight, Loader2, ShieldCheck, Paperclip, FileText, Loader,
+  Wallet, ChevronRight, Loader2, ShieldCheck, Paperclip, FileText, Loader, CalendarClock,
 } from 'lucide-react';
 
 const MUTPRO_LOGO = '/logos/mutpro-mavi-logo.jpeg';
 const NAVY = '#040023';
 const ORANGE = '#f97316';
+const CREAM = '#F4F1EA';
+
+function initials(name: string) {
+  const parts = name.trim().split(/\s+/).slice(0, 2);
+  return parts.map((s) => s[0]?.toUpperCase() || '').join('') || '?';
+}
 
 type Panel = 'dashboard' | 'detail';
 
@@ -86,10 +94,13 @@ export default function CariPage() {
 
   if (!authed) {
     return (
-      <LoginScreen
-        setupRequired={setupRequired}
-        onSuccess={() => { setAuthed(true); checkAuth(); }}
-      />
+      <div className="-m-4 lg:-m-6 min-h-[calc(100vh-57px)] flex items-center" style={{ background: CREAM }}>
+        <MutProLogin
+          setupRequired={setupRequired}
+          title="Cari Takip"
+          onSuccess={() => { setAuthed(true); checkAuth(); }}
+        />
+      </div>
     );
   }
 
@@ -112,88 +123,6 @@ function ConfigErrorScreen({ message, onRetry }: { message: string; onRetry: () 
       <button onClick={onRetry} className="px-5 py-2.5 rounded-lg text-white text-sm font-bold" style={{ background: NAVY }}>
         Tekrar Dene
       </button>
-    </div>
-  );
-}
-
-/* ============================ LOGIN / SETUP ============================ */
-function LoginScreen({ setupRequired, onSuccess }: { setupRequired: boolean; onSuccess: () => void }) {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(true);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      const res = await fetch('/api/cari/auth', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password, remember }),
-      });
-      const data = await res.json();
-      if (!res.ok) { setError(data.error || 'Giriş başarısız.'); return; }
-      onSuccess();
-    } catch {
-      setError('Bağlantı hatası.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-[70vh] flex items-center justify-center px-4">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 mx-auto rounded-2xl flex items-center justify-center mb-4 shadow-lg" style={{ background: NAVY }}>
-            <Lock className="w-8 h-8 text-white" />
-          </div>
-          <h1 className="text-xl font-extrabold text-gray-800">Cari Takip Sistemi</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {setupRequired ? 'İlk kurulum — yönetici hesabı oluşturun' : 'Devam etmek için giriş yapın'}
-          </p>
-        </div>
-
-        <form onSubmit={submit} autoComplete="on" className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-4">
-          {setupRequired && (
-            <div className="text-xs bg-blue-50 text-blue-700 rounded-lg p-3 border border-blue-100">
-              Bu sistemde henüz kullanıcı yok. Belirleyeceğiniz kullanıcı adı ve şifre <b>ilk yönetici hesabı</b> olacak.
-            </div>
-          )}
-          <div>
-            <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Kullanıcı Adı</label>
-            <input
-              type="text" name="username" autoComplete="username" value={username} onChange={(e) => setUsername(e.target.value)} required autoFocus
-              className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none"
-              placeholder="kullanici"
-            />
-          </div>
-          <div>
-            <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">Şifre</label>
-            <input
-              type="password" name="password" autoComplete={setupRequired ? 'new-password' : 'current-password'} value={password} onChange={(e) => setPassword(e.target.value)} required
-              className="w-full border border-gray-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none"
-              placeholder="••••••••"
-            />
-          </div>
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="w-4 h-4 rounded border-gray-300 text-orange-500 focus:ring-orange-500/30" />
-            <span className="text-xs font-medium text-gray-600">Beni hatırla <span className="text-gray-400">(30 gün şifre sormaz)</span></span>
-          </label>
-          {error && <div className="text-xs text-red-600 bg-red-50 rounded-lg p-2.5 border border-red-100">{error}</div>}
-          <button
-            type="submit" disabled={loading}
-            className="w-full text-white font-bold py-3 rounded-lg text-sm flex items-center justify-center gap-2 disabled:opacity-60"
-            style={{ background: NAVY }}
-          >
-            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Lock className="w-4 h-4" />}
-            {setupRequired ? 'Hesabı Oluştur ve Gir' : 'Giriş Yap'}
-          </button>
-        </form>
-      </div>
     </div>
   );
 }
@@ -231,7 +160,7 @@ function CariApp({ me, onLogout }: { me: string | null; onLogout: () => void }) 
 
   const logout = async () => {
     await fetch('/api/cari/auth', { method: 'DELETE' });
-    onLogout();
+    window.location.reload();
   };
 
   const current = accounts.find((a) => a.id === currentId) || null;
@@ -290,6 +219,7 @@ function CariApp({ me, onLogout }: { me: string | null; onLogout: () => void }) 
     const trans = transactions.map((t) => ({
       id: t.id, customerId: t.account_id, date: t.date, desc: t.description,
       type: t.type, amount: t.amount, paymentMethod: t.payment_method, installments: t.installments,
+      dueDate: t.due_date || null,
     }));
     const blob = new Blob([JSON.stringify({ customers, transactions: trans, exportDate: new Date().toISOString() }, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -322,21 +252,26 @@ function CariApp({ me, onLogout }: { me: string | null; onLogout: () => void }) 
   };
 
   return (
-    <div className="-m-4 lg:-m-6">
+    <div className="-m-4 lg:-m-6 min-h-[calc(100vh-57px)]" style={{ background: CREAM }}>
       {/* Üst araç çubuğu */}
-      <div className="sticky top-[57px] z-20 bg-white/90 backdrop-blur border-b border-gray-200 px-4 lg:px-6 py-3 flex items-center justify-between gap-2 flex-wrap">
+      <div className="sticky top-[57px] z-20 px-4 lg:px-6 py-2.5 flex items-center justify-between gap-2 flex-wrap text-white" style={{ background: NAVY }}>
         <div className="flex items-center gap-3">
-          <img src={MUTPRO_LOGO} alt="MutPro" className="h-8 w-auto object-contain cursor-pointer" onClick={backToDash} />
-          <span className="text-xs font-bold text-gray-400 uppercase tracking-wider hidden sm:inline">Cari Takip</span>
+          <button type="button" onClick={backToDash} className="bg-white rounded-md px-2 py-1 shadow-sm">
+            <img src={MUTPRO_LOGO} alt="MutPro" className="h-7 w-auto object-contain" />
+          </button>
+          <div className="hidden sm:block">
+            <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/45">MutPro</div>
+            <div className="text-sm font-semibold tracking-tight">Cari Takip</div>
+          </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <ToolBtn onClick={backToDash} icon={<Users className="w-4 h-4" />} label="Panel" />
-          <ToolBtn onClick={backup} icon={<FileDown className="w-4 h-4" />} label="Yedekle" tone="blue" />
-          <ToolBtn onClick={() => restoreRef.current?.click()} icon={<Upload className="w-4 h-4" />} label="Yükle" tone="purple" />
+          <ToolBtn dark onClick={backToDash} icon={<Users className="w-4 h-4" />} label="Panel" />
+          <ToolBtn dark onClick={backup} icon={<FileDown className="w-4 h-4" />} label="Yedekle" tone="blue" />
+          <ToolBtn dark onClick={() => restoreRef.current?.click()} icon={<Upload className="w-4 h-4" />} label="Yükle" tone="purple" />
           <input ref={restoreRef} type="file" accept=".json" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) restore(f); e.target.value = ''; }} />
-          <div className="w-px h-6 bg-gray-200 mx-1" />
-          <ToolBtn onClick={() => setSettingsOpen(true)} icon={<Settings className="w-4 h-4" />} label="Ayarlar" />
-          <ToolBtn onClick={logout} icon={<LogOut className="w-4 h-4" />} label="Çıkış" tone="red" />
+          <div className="w-px h-5 bg-white/20 mx-1" />
+          <ToolBtn dark onClick={() => setSettingsOpen(true)} icon={<Settings className="w-4 h-4" />} label="Ayarlar" />
+          <ToolBtn dark onClick={logout} icon={<LogOut className="w-4 h-4" />} label="Çıkış" tone="red" />
         </div>
       </div>
 
@@ -376,7 +311,8 @@ function CariApp({ me, onLogout }: { me: string | null; onLogout: () => void }) 
       {settingsOpen && <SettingsModal me={me} onClose={() => setSettingsOpen(false)} showToast={showToast} />}
 
       {toast && (
-        <div className="fixed bottom-6 right-6 bg-gray-800 text-white px-5 py-3.5 rounded-xl shadow-2xl z-50 flex items-center gap-3 border-l-4 border-emerald-500 text-sm font-medium">
+        <div className="fixed bottom-6 right-6 text-white px-5 py-3.5 rounded-xl shadow-2xl z-50 flex items-center gap-3 text-sm font-medium" style={{ background: NAVY }}>
+          <span className="w-1.5 h-8 rounded-full" style={{ background: ORANGE }} />
           {toast}
         </div>
       )}
@@ -384,15 +320,25 @@ function CariApp({ me, onLogout }: { me: string | null; onLogout: () => void }) 
   );
 }
 
-function ToolBtn({ onClick, icon, label, tone }: { onClick: () => void; icon: React.ReactNode; label: string; tone?: 'blue' | 'purple' | 'red' }) {
-  const tones: Record<string, string> = {
-    blue: 'text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100',
-    purple: 'text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100',
-    red: 'text-red-600 bg-red-50 border-red-200 hover:bg-red-100',
-  };
-  const cls = tone ? tones[tone] : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-50';
+function ToolBtn({ onClick, icon, label, tone, dark }: { onClick: () => void; icon: React.ReactNode; label: string; tone?: 'blue' | 'purple' | 'red'; dark?: boolean }) {
+  const tones: Record<string, string> = dark
+    ? {
+        blue: 'text-sky-200 bg-white/10 border-white/10 hover:bg-white/15',
+        purple: 'text-violet-200 bg-white/10 border-white/10 hover:bg-white/15',
+        red: 'text-rose-200 bg-white/10 border-white/10 hover:bg-rose-500/30',
+      }
+    : {
+        blue: 'text-blue-700 bg-blue-50 border-blue-200 hover:bg-blue-100',
+        purple: 'text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100',
+        red: 'text-red-600 bg-red-50 border-red-200 hover:bg-red-100',
+      };
+  const cls = tone
+    ? tones[tone]
+    : dark
+      ? 'text-white/90 bg-white/10 border-white/10 hover:bg-white/15'
+      : 'text-gray-700 bg-white border-gray-200 hover:bg-gray-50';
   return (
-    <button onClick={onClick} className={`flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium border rounded-lg transition-colors ${cls}`}>
+    <button onClick={onClick} className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-medium border rounded-lg transition-colors ${cls}`}>
       {icon}<span className="hidden md:inline">{label}</span>
     </button>
   );
@@ -409,16 +355,26 @@ function Dashboard({ accounts, transactions, onOpen, onAdd }: {
 
   const rows = useMemo(() => {
     return accounts.map((acc) => {
-      let debt = 0, credit = 0;
+      let debt = 0, credit = 0, overdue = 0;
       transactions.forEach((t) => {
         if (t.account_id !== acc.id) return;
         if (isDebtType(t.type)) debt += t.amount; else credit += t.amount;
+        if (isOverdueDueDate(t.due_date)) overdue += 1;
       });
-      return { ...acc, debt, credit, balance: debt - credit };
+      return { ...acc, debt, credit, balance: debt - credit, overdue };
     });
   }, [accounts, transactions]);
 
-  const filtered = rows.filter((r) => foldedIncludes(r.name, search));
+  const filtered = useMemo(() => {
+    return rows
+      .filter((r) => foldedIncludes(r.name, search))
+      .sort((a, b) => {
+        const az = a.balance === 0 ? 0 : 1;
+        const bz = b.balance === 0 ? 0 : 1;
+        if (bz !== az) return bz - az;
+        return Math.abs(b.balance) - Math.abs(a.balance);
+      });
+  }, [rows, search]);
 
   const totals = useMemo(() => {
     let receivable = 0, payable = 0, sumDebt = 0, sumCredit = 0, sumBalance = 0;
@@ -430,55 +386,56 @@ function Dashboard({ accounts, transactions, onOpen, onAdd }: {
   }, [rows]);
 
   return (
-    <div className="p-4 lg:p-6 space-y-6">
+    <div className="p-4 lg:p-7 space-y-6">
       <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-3">
         <div>
-          <h2 className="text-2xl font-extrabold text-gray-800 tracking-tight">Finansal Özet</h2>
-          <p className="text-sm text-gray-500 mt-1">Tüm cari hesap bakiyelerinizin güncel durumu</p>
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] mb-1" style={{ color: ORANGE }}>Finans</p>
+          <h2 className="text-2xl font-extrabold tracking-tight" style={{ color: NAVY }}>Cari bakiyeler</h2>
+          <p className="text-sm text-gray-500 mt-1">En büyük alacak ve borçlar üstte</p>
         </div>
-        <button onClick={onAdd} className="flex items-center gap-2 text-white font-bold px-4 py-2.5 rounded-lg text-sm shadow" style={{ background: ORANGE }}>
+        <button onClick={onAdd} className="flex items-center gap-2 text-white font-bold px-4 py-2.5 rounded-xl text-sm shadow-sm" style={{ background: ORANGE }}>
           <Plus className="w-4 h-4" /> Yeni Cari Kart
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="bg-gradient-to-br from-emerald-500 to-teal-700 p-6 rounded-2xl shadow-lg text-white relative overflow-hidden">
-          <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10" />
-          <span className="text-xs font-bold text-emerald-100 uppercase tracking-wider flex items-center gap-2">
-            <span className="bg-white/20 p-1.5 rounded-md"><TrendingUp className="w-4 h-4" /></span> Bizim Alacaklarımız
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-black/[0.06] shadow-[0_8px_30px_-20px_rgba(4,0,35,0.35)] relative overflow-hidden">
+          <div className="absolute left-0 top-0 h-full w-1.5 bg-emerald-500" />
+          <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2 pl-2">
+            <span className="bg-emerald-50 text-emerald-700 p-1.5 rounded-md"><TrendingUp className="w-4 h-4" /></span> Bizim alacaklarımız
           </span>
-          <h3 className="text-4xl font-extrabold mt-5">{currencyFmt.format(totals.receivable)}</h3>
-          <p className="text-xs text-emerald-100/80 mt-3">Toplam tahsil edilecek tutar</p>
+          <h3 className="text-3xl font-extrabold mt-4 pl-2" style={{ color: NAVY }}>{currencyFmt.format(totals.receivable)}</h3>
+          <p className="text-xs text-gray-400 mt-2 pl-2">Toplam tahsil edilecek tutar</p>
         </div>
-        <div className="bg-gradient-to-br from-rose-500 to-red-700 p-6 rounded-2xl shadow-lg text-white relative overflow-hidden">
-          <div className="absolute right-0 top-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -mr-10 -mt-10" />
-          <span className="text-xs font-bold text-rose-100 uppercase tracking-wider flex items-center gap-2">
-            <span className="bg-white/20 p-1.5 rounded-md"><TrendingDown className="w-4 h-4" /></span> Bizim Borçlarımız
+        <div className="bg-white p-5 rounded-2xl border border-black/[0.06] shadow-[0_8px_30px_-20px_rgba(4,0,35,0.35)] relative overflow-hidden">
+          <div className="absolute left-0 top-0 h-full w-1.5 bg-rose-500" />
+          <span className="text-[11px] font-bold uppercase tracking-wider text-gray-400 flex items-center gap-2 pl-2">
+            <span className="bg-rose-50 text-rose-700 p-1.5 rounded-md"><TrendingDown className="w-4 h-4" /></span> Bizim borçlarımız
           </span>
-          <h3 className="text-4xl font-extrabold mt-5">{currencyFmt.format(totals.payable)}</h3>
-          <p className="text-xs text-rose-100/80 mt-3">Toplam ödenecek tutar</p>
+          <h3 className="text-3xl font-extrabold mt-4 pl-2" style={{ color: NAVY }}>{currencyFmt.format(totals.payable)}</h3>
+          <p className="text-xs text-gray-400 mt-2 pl-2">Toplam ödenecek tutar</p>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-2xl border border-black/[0.06] shadow-[0_8px_30px_-20px_rgba(4,0,35,0.35)] overflow-hidden">
         <div className="p-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
-          <h3 className="font-bold text-gray-700 flex items-center gap-2"><Users className="w-4 h-4 text-gray-400" /> Tüm Cari Bakiyeler</h3>
+          <h3 className="font-bold flex items-center gap-2" style={{ color: NAVY }}><Users className="w-4 h-4 text-gray-400" /> Tüm cari bakiyeler</h3>
           <div className="relative">
             <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Cari ara..."
-              className="pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg w-56 focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" />
+              className="pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg w-56 bg-[#F4F1EA]/60 focus:bg-white focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 outline-none" />
           </div>
         </div>
         <div className="overflow-auto">
           <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 text-xs text-gray-500 uppercase font-bold">
+            <thead className="text-[10px] uppercase tracking-[0.14em] font-bold text-white/55" style={{ background: NAVY }}>
               <tr>
-                <th className="p-4">Cari Adı</th>
-                <th className="p-4 text-right">Top. Borç</th>
-                <th className="p-4 text-right">Top. Alacak/Tah.</th>
-                <th className="p-4 text-right">Bakiye</th>
-                <th className="p-4 text-center">Durum</th>
-                <th className="p-4 text-center w-24">İşlem</th>
+                <th className="p-3.5 font-bold">Cari Adı</th>
+                <th className="p-3.5 text-right font-bold">Top. Borç</th>
+                <th className="p-3.5 text-right font-bold">Top. Alacak/Tah.</th>
+                <th className="p-3.5 text-right font-bold">Bakiye</th>
+                <th className="p-3.5 text-center font-bold">Durum</th>
+                <th className="p-3.5 text-center w-24 font-bold">İşlem</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -486,26 +443,33 @@ function Dashboard({ accounts, transactions, onOpen, onAdd }: {
                 <tr><td colSpan={6} className="p-10 text-center text-gray-400 text-sm">Kayıtlı cari bulunamadı.</td></tr>
               )}
               {filtered.map((r) => {
-                let color = 'text-gray-400', badge = <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-gray-100 text-gray-500">Nötr</span>;
-                if (r.balance > 0) { color = 'text-rose-600 font-bold'; badge = <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-rose-50 text-rose-600 border border-rose-100">Borçluyuz</span>; }
-                else if (r.balance < 0) { color = 'text-emerald-600 font-bold'; badge = <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-100">Alacaklıyız</span>; }
+                let color = 'text-gray-400', badge = <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-gray-100 text-gray-500">Nötr</span>;
+                if (r.balance > 0) { color = 'text-rose-600 font-bold'; badge = <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700">Borçluyuz</span>; }
+                else if (r.balance < 0) { color = 'text-emerald-700 font-bold'; badge = <span className="px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700">Alacaklıyız</span>; }
                 return (
-                  <tr key={r.id} className="hover:bg-gray-50 cursor-pointer" onClick={() => onOpen(r.id)}>
-                    <td className="p-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-400 text-xs"><Users className="w-4 h-4" /></div>
+                  <tr key={r.id} className="hover:bg-[#F4F1EA]/70 cursor-pointer transition-colors" onClick={() => onOpen(r.id)}>
+                    <td className="p-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-extrabold text-white shrink-0" style={{ background: NAVY }}>{initials(r.name)}</div>
                         <div>
-                          <div className="font-semibold text-gray-700">{r.name}</div>
-                          <div className="text-[10px] text-gray-400">{r.phone || '-'}</div>
+                          <div className="font-semibold" style={{ color: NAVY }}>{r.name}</div>
+                          <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                            <span className="text-[10px] text-gray-400">{r.phone || '-'}</span>
+                            {r.overdue > 0 && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 px-1.5 py-0.5 rounded-full">
+                                <CalendarClock className="w-3 h-3" /> {r.overdue} vadesi geçmiş çek
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 text-right font-mono text-rose-600">{currencyFmt.format(r.debt)}</td>
-                    <td className="p-4 text-right font-mono text-emerald-600">{currencyFmt.format(r.credit)}</td>
-                    <td className={`p-4 text-right font-mono ${color}`}>{currencyFmt.format(r.balance)}</td>
-                    <td className="p-4 text-center">{badge}</td>
-                    <td className="p-4 text-center">
-                      <span className="text-orange-600 text-xs font-bold bg-orange-50 px-3 py-1.5 rounded-lg inline-flex items-center gap-1">
+                    <td className="p-3.5 text-right font-mono text-rose-600">{currencyFmt.format(r.debt)}</td>
+                    <td className="p-3.5 text-right font-mono text-emerald-700">{currencyFmt.format(r.credit)}</td>
+                    <td className={`p-3.5 text-right font-mono ${color}`}>{currencyFmt.format(r.balance)}</td>
+                    <td className="p-3.5 text-center">{badge}</td>
+                    <td className="p-3.5 text-center">
+                      <span className="text-white text-xs font-bold px-3 py-1.5 rounded-lg inline-flex items-center gap-1" style={{ background: ORANGE }}>
                         Detay <ChevronRight className="w-3 h-3" />
                       </span>
                     </td>
@@ -672,7 +636,7 @@ function CustomerDetail({ account, transactions, onSaveTransaction, onDeleteTran
       const matchesDate = checkDateFilter(t.date, dateFilter);
       if (!start) { if (isDebtType(t.type)) running += t.amount; else running -= t.amount; }
       else if (matchesDate) { if (isDebtType(t.type)) running += t.amount; else running -= t.amount; }
-      const matchesSearch = !term || foldedIncludes(`${t.description} ${t.date}`, search);
+      const matchesSearch = !term || foldedIncludes(`${t.description} ${t.date} ${t.due_date || ''}`, search);
       if (matchesSearch && matchesDate) out.push({ t, balance: running });
     });
     return { rows: out, devir: start ? { balance: devirBalance, start } : null, displayedCount: out.length };
@@ -681,13 +645,14 @@ function CustomerDetail({ account, transactions, onSaveTransaction, onDeleteTran
   const printExtract = () => generateExtractPrint(account, custTrans, period, overall);
 
   const exportCsv = () => {
-    let csv = '﻿' + 'Tarih;Açıklama;Borç;Alacak/Tahsilat\n';
+    let csv = '﻿' + 'Tarih;Vade;Açıklama;Borç;Alacak/Tahsilat\n';
     custTrans.forEach((t) => {
       const d = new Date(t.date).toLocaleDateString('tr-TR');
+      const vade = t.due_date ? new Date(t.due_date).toLocaleDateString('tr-TR') : '';
       const desc = (t.description || '').replace(/;/g, ' ');
       const borc = isDebtType(t.type) ? String(t.amount).replace('.', ',') : '0';
       const odenen = !isDebtType(t.type) ? String(t.amount).replace('.', ',') : '0';
-      csv += `${d};${desc};${borc};${odenen}\n`;
+      csv += `${d};${vade};${desc};${borc};${odenen}\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
@@ -698,26 +663,30 @@ function CustomerDetail({ account, transactions, onSaveTransaction, onDeleteTran
   };
 
   return (
-    <div className="p-4 lg:p-6">
-      <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-4">
-        <ArrowLeft className="w-4 h-4" /> Panele Dön
+    <div className="p-4 lg:p-7">
+      <button onClick={onBack} className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 mb-4">
+        <ArrowLeft className="w-4 h-4" /> Panele dön
       </button>
 
       <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-6">
         {/* Sol: cari kart + işlem formu — masaüstünde scroll'da yapışık kalır */}
         <div className="space-y-4 lg:sticky lg:top-[120px] lg:self-start lg:max-h-[calc(100vh-136px)] lg:overflow-y-auto lg:pr-1">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-            <div className="flex items-start justify-between">
-              <div>
-                <h3 className="font-bold text-gray-800 text-lg leading-tight">{account.name}</h3>
-                {account.phone && <p className="text-xs text-gray-500 mt-1">Tel: {account.phone}</p>}
-                {account.tax_info && <p className="text-xs text-gray-500">VN: {account.tax_info}</p>}
-                {account.address && <p className="text-xs text-gray-400 mt-1">{account.address}</p>}
+          <div className="bg-white rounded-2xl border border-black/[0.06] shadow-[0_8px_30px_-20px_rgba(4,0,35,0.35)] overflow-hidden">
+            <div className="px-5 py-4 text-white flex items-start justify-between gap-3" style={{ background: NAVY }}>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/45 mb-1">Cari kart</p>
+                <h3 className="font-bold text-base leading-tight">{account.name}</h3>
               </div>
-              <div className="flex gap-1">
-                <button onClick={onEditCustomer} className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg" title="Düzenle"><Pencil className="w-4 h-4" /></button>
-                <button onClick={onDeleteCustomer} className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg" title="Sil"><Trash2 className="w-4 h-4" /></button>
+              <div className="flex gap-1 shrink-0">
+                <button onClick={onEditCustomer} className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg" title="Düzenle"><Pencil className="w-4 h-4" /></button>
+                <button onClick={onDeleteCustomer} className="p-2 text-white/70 hover:text-rose-200 hover:bg-white/10 rounded-lg" title="Sil"><Trash2 className="w-4 h-4" /></button>
               </div>
+            </div>
+            <div className="px-5 py-4 space-y-1.5 text-xs text-gray-600">
+              {account.phone && <p>Tel: {account.phone}</p>}
+              {account.tax_info && <p>VN: {account.tax_info}</p>}
+              {account.address && <p className="text-gray-400 leading-relaxed">{account.address}</p>}
+              {!account.phone && !account.tax_info && !account.address && <p className="text-gray-400 italic">İletişim bilgisi yok</p>}
             </div>
           </div>
 
@@ -733,42 +702,41 @@ function CustomerDetail({ account, transactions, onSaveTransaction, onDeleteTran
         {/* Sağ: özet + ekstre */}
         <div className="space-y-4">
           {/* Özet kartlar — sayfa kaydırılırken üstte yapışık kalır */}
-          <div className="sticky top-[112px] z-10 bg-gray-50 py-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <SummaryCard label={`Dönem Borç (${FILTER_LABELS[dateFilter]})`} value={period.debt} accent="from-blue-400 to-blue-600" />
-            <SummaryCard label={`Dönem Alacak/Tah.`} value={period.credit} accent="from-emerald-400 to-emerald-600" />
+          <div className="sticky top-[108px] z-10 py-2 grid grid-cols-1 sm:grid-cols-3 gap-3" style={{ background: CREAM }}>
+            <SummaryCard label={`Dönem borç (${FILTER_LABELS[dateFilter]})`} value={period.debt} accent="bg-blue-500" />
+            <SummaryCard label="Dönem alacak / tah." value={period.credit} accent="bg-emerald-500" />
             <BalanceCard net={overall.net} />
           </div>
 
-          {/* Araç çubuğu */}
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl border border-black/[0.06] shadow-[0_8px_30px_-20px_rgba(4,0,35,0.35)] overflow-hidden">
             <div className="p-3 border-b border-gray-100 flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2">
                 <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value as DateFilter)}
-                  className="text-xs border border-gray-200 rounded-lg py-2 px-3 font-bold text-gray-700 outline-none focus:border-orange-500">
+                  className="text-xs border border-gray-200 rounded-lg py-2 px-3 font-bold text-gray-700 outline-none focus:border-orange-500 bg-[#F4F1EA]/50">
                   {(Object.keys(FILTER_LABELS) as DateFilter[]).map((k) => <option key={k} value={k}>{FILTER_LABELS[k]}</option>)}
                 </select>
                 <div className="relative">
                   <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
                   <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Açıklama/tarih ara..."
-                    className="pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg w-44 outline-none focus:border-orange-500" />
+                    className="pl-9 pr-3 py-2 text-xs border border-gray-200 rounded-lg w-44 outline-none focus:border-orange-500 bg-[#F4F1EA]/50 focus:bg-white" />
                 </div>
               </div>
               <div className="flex items-center gap-1.5">
-                <button onClick={exportCsv} className="flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg hover:bg-emerald-100"><FileDown className="w-4 h-4" /><span className="hidden sm:inline">Excel</span></button>
-                <button onClick={printExtract} className="flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50"><Printer className="w-4 h-4" /><span className="hidden sm:inline">Ekstre PDF</span></button>
+                <button onClick={exportCsv} className="flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-emerald-800 bg-emerald-50 border border-emerald-100 rounded-lg hover:bg-emerald-100"><FileDown className="w-4 h-4" /><span className="hidden sm:inline">Excel</span></button>
+                <button onClick={printExtract} className="flex items-center gap-1.5 px-2.5 py-2 text-xs font-medium text-white rounded-lg" style={{ background: NAVY }}><Printer className="w-4 h-4" /><span className="hidden sm:inline">Ekstre PDF</span></button>
               </div>
             </div>
 
             <div className="overflow-auto">
               <table className="w-full text-left text-xs md:text-sm">
-                <thead className="bg-gray-50 text-[10px] uppercase text-gray-400 font-extrabold tracking-widest">
+                <thead className="text-[10px] uppercase tracking-[0.14em] font-bold text-white/55" style={{ background: NAVY }}>
                   <tr>
-                    <th className="p-3 w-28">Tarih</th>
-                    <th className="p-3">Açıklama</th>
-                    <th className="p-3 text-right w-28">Borç</th>
-                    <th className="p-3 text-right w-28">Alacak/Tah.</th>
-                    <th className="p-3 text-right w-32">Bakiye</th>
-                    <th className="p-3 text-center w-20">İşlem</th>
+                    <th className="p-3 w-28 font-bold">Tarih</th>
+                    <th className="p-3 font-bold">Açıklama</th>
+                    <th className="p-3 text-right w-28 font-bold">Borç</th>
+                    <th className="p-3 text-right w-28 font-bold">Alacak/Tah.</th>
+                    <th className="p-3 text-right w-32 font-bold">Bakiye</th>
+                    <th className="p-3 text-center w-20 font-bold">İşlem</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 text-gray-700">
@@ -787,16 +755,31 @@ function CustomerDetail({ account, transactions, onSaveTransaction, onDeleteTran
                   )}
                   {rows.map(({ t, balance }) => {
                     const isDebt = isDebtType(t.type);
+                    const overdue = isOverdueDueDate(t.due_date);
+                    const isCek = isPaymentType(t.type) && t.payment_method === 'cek';
                     return (
-                      <tr key={t.id} className="hover:bg-gray-50 group">
+                      <tr key={t.id} className="hover:bg-[#F4F1EA]/70 group">
                         <td className="p-3 font-semibold whitespace-nowrap text-gray-500">{dateFmt(t.date)}</td>
                         <td className="p-3 text-gray-800 font-medium">
-                          {t.description}
-                          {isPaymentType(t.type) && t.payment_method && (
-                            <span className="inline-flex items-center gap-1 ml-2 text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded border uppercase font-semibold">
-                              <Wallet className="w-2.5 h-2.5" /> {PAYMENT_METHOD_SHORT[t.payment_method] || t.payment_method}{t.installments ? ` (${t.installments} Tak.)` : ''}
-                            </span>
-                          )}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span>{t.description}</span>
+                            {isPaymentType(t.type) && t.payment_method && !isCek && (
+                              <span className="inline-flex items-center gap-1 text-[9px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded border uppercase font-semibold">
+                                <Wallet className="w-2.5 h-2.5" /> {PAYMENT_METHOD_SHORT[t.payment_method] || t.payment_method}{t.installments ? ` (${t.installments} Tak.)` : ''}
+                              </span>
+                            )}
+                            {isCek && (
+                              <span className={`inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md border uppercase font-bold ${
+                                overdue
+                                  ? 'bg-rose-50 text-rose-700 border-rose-200'
+                                  : 'bg-amber-50 text-amber-800 border-amber-200'
+                              }`}>
+                                <CalendarClock className="w-2.5 h-2.5" />
+                                Çek{t.due_date ? ` · ${dateFmt(t.due_date)}` : ''}
+                                {overdue ? ' · Gecikti' : ''}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className={`p-3 text-right font-mono ${isDebt ? 'text-rose-600 font-bold' : 'text-gray-300'}`}>{isDebt ? currencyFmt.format(t.amount) : '-'}</td>
                         <td className={`p-3 text-right font-mono ${!isDebt ? 'text-emerald-600 font-bold' : 'text-gray-300'}`}>{!isDebt ? currencyFmt.format(t.amount) : '-'}</td>
@@ -876,24 +859,24 @@ function CustomerDetail({ account, transactions, onSaveTransaction, onDeleteTran
 
 function SummaryCard({ label, value, accent }: { label: string; value: number; accent: string }) {
   return (
-    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden h-24 flex flex-col justify-between">
-      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-tight">{label}</p>
-      <h3 className="text-xl font-extrabold text-gray-800">{currencyFmt.format(value)}</h3>
-      <div className={`h-1.5 w-full bg-gradient-to-r ${accent} absolute bottom-0 left-0`} />
+    <div className="bg-white p-4 rounded-xl border border-black/[0.06] shadow-sm relative overflow-hidden h-24 flex flex-col justify-between">
+      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest leading-tight pl-2">{label}</p>
+      <h3 className="text-xl font-extrabold pl-2" style={{ color: NAVY }}>{currencyFmt.format(value)}</h3>
+      <div className={`absolute left-0 top-0 h-full w-1.5 ${accent}`} />
     </div>
   );
 }
 
 function BalanceCard({ net }: { net: number }) {
   let label = 'Bakiye Yok', color = 'text-gray-500', bar = 'bg-gray-300', badge = 'bg-gray-100 text-gray-500';
-  if (net > 0) { label = 'Borçluyuz'; color = 'text-rose-600'; bar = 'bg-gradient-to-b from-rose-400 to-rose-600'; badge = 'bg-rose-100 text-rose-700'; }
-  else if (net < 0) { label = 'Alacaklıyız'; color = 'text-emerald-600'; bar = 'bg-gradient-to-b from-emerald-400 to-emerald-600'; badge = 'bg-emerald-100 text-emerald-700'; }
+  if (net > 0) { label = 'Borçluyuz'; color = 'text-rose-600'; bar = 'bg-rose-500'; badge = 'bg-rose-50 text-rose-700'; }
+  else if (net < 0) { label = 'Alacaklıyız'; color = 'text-emerald-700'; bar = 'bg-emerald-500'; badge = 'bg-emerald-50 text-emerald-700'; }
   return (
-    <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden h-24 flex flex-col justify-between">
-      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Genel Bakiye</p>
-      <h3 className={`text-xl font-extrabold ${color}`}>{currencyFmt.format(net)}</h3>
-      <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold inline-block w-fit uppercase ${badge}`}>{label}</span>
-      <div className={`absolute right-0 top-0 h-full w-1.5 ${bar}`} />
+    <div className="bg-white p-4 rounded-xl border border-black/[0.06] shadow-sm relative overflow-hidden h-24 flex flex-col justify-between">
+      <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest pl-2">Genel bakiye</p>
+      <h3 className={`text-xl font-extrabold pl-2 ${color}`}>{currencyFmt.format(net)}</h3>
+      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-block w-fit uppercase ml-2 ${badge}`}>{label}</span>
+      <div className={`absolute left-0 top-0 h-full w-1.5 ${bar}`} />
     </div>
   );
 }
@@ -907,6 +890,7 @@ function TransactionForm({ accountId, editing, onCancel, onSubmit }: {
 }) {
   const today = new Date().toISOString().split('T')[0];
   const [date, setDate] = useState(editing?.date || today);
+  const [dueDate, setDueDate] = useState(editing?.due_date || '');
   const [type, setType] = useState<CariType>(editing?.type || 'borc');
   const [desc, setDesc] = useState(editing?.description || '');
   const [amount, setAmount] = useState<string>(editing ? String(editing.amount) : '');
@@ -917,14 +901,16 @@ function TransactionForm({ accountId, editing, onCancel, onSubmit }: {
     e.preventDefault();
     const amt = parseFloat(amount);
     if (!(amt > 0)) return;
+    const isCek = isPaymentType(type) && method === 'cek';
     onSubmit({
       id: editing?.id,
       account_id: accountId,
       date, type, description: desc, amount: amt,
       payment_method: isPaymentType(type) ? method : null,
       installments: isPaymentType(type) && method === 'kart-taksit' ? installments : null,
+      due_date: isCek && dueDate ? dueDate : null,
     });
-    if (!editing) { setDesc(''); setAmount(''); setType('borc'); }
+    if (!editing) { setDesc(''); setAmount(''); setType('borc'); setDueDate(''); }
   };
 
   const typeBtns: Array<{ v: CariType; label: string; sub: string; active: string }> = [
@@ -934,12 +920,17 @@ function TransactionForm({ accountId, editing, onCancel, onSubmit }: {
     { v: 'odeme_al', label: 'ÖDEME AL', sub: '(+Tahsilat)', active: 'bg-emerald-500 border-emerald-500 text-white' },
   ];
 
+  const isCek = isPaymentType(type) && method === 'cek';
+  const payTone = isCek
+    ? { box: 'bg-amber-50 border-amber-200', label: 'text-amber-900', input: 'border-amber-200' }
+    : { box: 'bg-emerald-50 border-emerald-100', label: 'text-emerald-800', input: 'border-emerald-200' };
+
   return (
-    <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-2xl border border-black/[0.06] shadow-[0_8px_30px_-20px_rgba(4,0,35,0.35)] overflow-hidden">
       <div className="p-4 border-b border-gray-100 flex justify-between items-center">
-        <h2 className="font-bold text-gray-700 text-sm flex items-center gap-2">
-          <span className={`p-1.5 rounded-md ${editing ? 'bg-orange-100 text-orange-600' : 'bg-blue-50 text-blue-600'}`}><Bolt className="w-3.5 h-3.5" /></span>
-          {editing ? 'İşlemi Düzenle' : 'Hızlı İşlem'}
+        <h2 className="font-bold text-sm flex items-center gap-2" style={{ color: NAVY }}>
+          <span className={`p-1.5 rounded-md ${editing ? 'bg-orange-100 text-orange-600' : 'bg-[#F4F1EA] text-[#040023]'}`}><Bolt className="w-3.5 h-3.5" /></span>
+          {editing ? 'İşlemi düzenle' : 'Hızlı işlem'}
         </h2>
         {editing && <button onClick={onCancel} className="text-[11px] text-gray-400 hover:text-orange-600 font-medium px-2 py-1 rounded bg-gray-100">İptal Et</button>}
       </div>
@@ -960,19 +951,31 @@ function TransactionForm({ accountId, editing, onCancel, onSubmit }: {
           </div>
         </div>
         {isPaymentType(type) && (
-          <div className="space-y-3 p-4 bg-emerald-50 rounded-xl border border-emerald-100">
+          <div className={`space-y-3 p-4 rounded-xl border ${payTone.box}`}>
             <div>
-              <label className="block text-[10px] font-bold text-emerald-800 mb-1.5 uppercase tracking-wider">Ödeme Yöntemi</label>
-              <select value={method} onChange={(e) => setMethod(e.target.value)} className="w-full border border-emerald-200 rounded-lg text-xs p-2.5 bg-white outline-none">
+              <label className={`block text-[10px] font-bold mb-1.5 uppercase tracking-wider ${payTone.label}`}>Ödeme Yöntemi</label>
+              <select value={method} onChange={(e) => setMethod(e.target.value)} className={`w-full border rounded-lg text-xs p-2.5 bg-white outline-none ${payTone.input}`}>
                 {Object.entries(PAYMENT_METHODS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
             </div>
             {method === 'kart-taksit' && (
               <div>
-                <label className="block text-[10px] font-bold text-emerald-800 mb-1.5 uppercase tracking-wider">Taksit Sayısı</label>
-                <select value={installments} onChange={(e) => setInstallments(e.target.value)} className="w-full border border-emerald-200 rounded-lg text-xs p-2.5 bg-white outline-none">
-                  {['2', '3', '6', '9', '12'].map((n) => <option key={n} value={n}>{n} Taksit</option>)}
+                <label className={`block text-[10px] font-bold mb-1.5 uppercase tracking-wider ${payTone.label}`}>Taksit Sayısı</label>
+                <select value={installments} onChange={(e) => setInstallments(e.target.value)} className={`w-full border rounded-lg text-xs p-2.5 bg-white outline-none ${payTone.input}`}>
+                  {[2, 3, 4, 5, 6, 7, 8, 9].map((n) => <option key={n} value={String(n)}>{n} Taksit</option>)}
+                  {installments && !['2', '3', '4', '5', '6', '7', '8', '9'].includes(installments) && (
+                    <option value={installments}>{installments} Taksit</option>
+                  )}
                 </select>
+              </div>
+            )}
+            {method === 'cek' && (
+              <div className="rounded-lg bg-white border border-amber-200 p-3">
+                <label className="flex items-center gap-1.5 text-[10px] font-bold text-amber-900 uppercase tracking-wider mb-1.5">
+                  <CalendarClock className="w-3.5 h-3.5" /> Çek / Senet Vadesi
+                </label>
+                <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="w-full border border-amber-200 rounded-lg text-sm p-2.5 outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-500/15" />
+                <p className="text-[10px] text-amber-800/70 mt-1.5 leading-snug">Vadesi geçen çekler ekstrede kırmızı etiketle görünür.</p>
               </div>
             )}
           </div>
@@ -1174,18 +1177,24 @@ function generateExtractPrint(
   const rowsHtml = custTrans.map((t) => {
     const isDebt = isDebtType(t.type);
     if (isDebt) running += t.amount; else running -= t.amount;
-    const method = isPaymentType(t.type) && t.payment_method
-      ? ` <span style="font-size:9px;color:#666;">(${PAYMENT_METHOD_SHORT[t.payment_method] || t.payment_method}${t.installments ? ` ${t.installments} Tak.` : ''})</span>` : '';
+    const overdue = isOverdueDueDate(t.due_date);
+    const isCek = isPaymentType(t.type) && t.payment_method === 'cek';
+    let extra = '';
+    if (isCek) {
+      extra = ` <span class="tag ${overdue ? 'tag-late' : 'tag-cek'}">Çek${t.due_date ? ` · ${dateFmt(t.due_date)}` : ''}${overdue ? ' · Gecikti' : ''}</span>`;
+    } else if (isPaymentType(t.type) && t.payment_method) {
+      extra = ` <span class="tag">${PAYMENT_METHOD_SHORT[t.payment_method] || t.payment_method}${t.installments ? ` ${t.installments} Tak.` : ''}</span>`;
+    }
     return `<tr>
       <td class="mono" style="white-space:nowrap;">${dateFmt(t.date)}</td>
-      <td>${escapeHtml(t.description)}${method}</td>
+      <td>${escapeHtml(t.description)}${extra}</td>
       <td class="mono r ${isDebt ? 'red' : 'muted'}">${isDebt ? currencyFmt.format(t.amount) : '-'}</td>
       <td class="mono r ${!isDebt ? 'green' : 'muted'}">${!isDebt ? currencyFmt.format(t.amount) : '-'}</td>
       <td class="mono r" style="font-weight:700;">${currencyFmt.format(running)}</td>
     </tr>`;
   }).join('');
 
-  const status = overall.net > 0 ? 'MUTPRO OLARAK BORÇLUYUZ' : overall.net < 0 ? 'MUTPRO OLARAK ALACAKLIYIZ' : 'BAKİYE YOK';
+  const status = overall.net > 0 ? 'BORÇ BAKİYESİ' : overall.net < 0 ? 'ALACAK BAKİYESİ' : 'BAKİYE YOK';
   const statusColor = overall.net > 0 ? '#dc2626' : overall.net < 0 ? '#059669' : '#6b7280';
 
   let details = '';
@@ -1203,15 +1212,18 @@ function generateExtractPrint(
     .wrap { max-width: 800px; margin: auto; }
     .no-print { text-align: center; padding: 14px; }
     .btn { padding: 10px 30px; background: ${NAVY}; color: #fff; border: none; border-radius: 6px; font-weight: 700; font-size: 14px; cursor: pointer; }
-    header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid ${NAVY}; padding-bottom: 14px; margin-bottom: 18px; }
-    header img { max-height: 46px; }
-    .slogan { font-size: 10px; font-weight: 600; color: #6b7280; letter-spacing: 1.5px; text-transform: uppercase; margin-top: 6px; }
-    .right { text-align: right; }
-    .right h1 { font-size: 18px; text-transform: uppercase; color: #111; }
-    .right .sub { font-size: 10px; color: #6b7280; line-height: 1.6; margin-top: 4px; }
-    .balbox { margin-top: 8px; padding-top: 6px; border-top: 1px solid #d1d5db; }
+    header { border-bottom: 2px solid #111; padding-bottom: 16px; margin-bottom: 20px; }
+    .kicker { font-size: 9px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: #9ca3af; margin-bottom: 6px; }
+    .party h1 { font-size: 22px; letter-spacing: -0.02em; color: #111; text-transform: none; }
+    .party .sub { font-size: 11px; color: #4b5563; line-height: 1.65; margin-top: 6px; }
+    .meta { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 14px; gap: 16px; padding-top: 10px; border-top: 1px solid #e5e7eb; }
+    .meta .title { font-size: 12px; font-weight: 700; color: #111; }
+    .balbox { text-align: right; }
     .balbox .amt { font-size: 22px; font-weight: 800; }
-    .balbox .st { font-size: 11px; font-weight: 700; text-transform: uppercase; color: ${statusColor}; }
+    .balbox .st { font-size: 10px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: ${statusColor}; }
+    .tag { display: inline-block; margin-left: 6px; font-size: 8px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase; padding: 2px 6px; border-radius: 4px; border: 1px solid #e5e7eb; color: #6b7280; background: #f9fafb; vertical-align: middle; }
+    .tag-cek { color: #92400e; background: #fffbeb; border-color: #fde68a; }
+    .tag-late { color: #b91c1c; background: #fff1f2; border-color: #fecdd3; }
     table { width: 100%; border-collapse: collapse; margin-top: 8px; }
     th { text-align: left; padding: 8px 6px; font-size: 9px; text-transform: uppercase; border-bottom: 2px solid #000; font-weight: 700; }
     td { padding: 6px; border-bottom: 1px solid #eee; vertical-align: top; }
@@ -1226,14 +1238,13 @@ function generateExtractPrint(
   <div class="no-print"><button class="btn" onclick="window.print()">Yazdır / PDF İndir</button></div>
   <div class="wrap">
     <header>
-      <div>
-        <img src="${MUTPRO_LOGO}" alt="MutPro" />
-        <div class="slogan">Endüstriyel Mutfak Ekipmanları</div>
-      </div>
-      <div class="right">
+      <div class="party">
+        <div class="kicker">Alıcı</div>
         <h1>${escapeHtml(account.name)}</h1>
         <div class="sub">${details}</div>
-        <div class="sub">Cari Hesap Ekstresi • ${todayStr}</div>
+      </div>
+      <div class="meta">
+        <div class="title">Cari Hesap Ekstresi • ${todayStr}</div>
         <div class="balbox">
           <div class="amt mono" style="color:${statusColor};">${currencyFmt.format(overall.net)}</div>
           <div class="st">${status}</div>
@@ -1251,7 +1262,7 @@ function generateExtractPrint(
         <tr style="border-top:1px solid #000;font-weight:800;"><td style="padding-top:6px;">Genel Bakiye:</td><td class="r mono" style="padding-top:6px;color:${statusColor};">${currencyFmt.format(overall.net)}</td></tr>
       </table>
     </div>
-    <footer>MutPro Cari Hesap Takip Sistemi tarafından oluşturulmuştur • ${todayStr}</footer>
+    <footer>${todayStr}</footer>
   </div>
   </body></html>`;
 

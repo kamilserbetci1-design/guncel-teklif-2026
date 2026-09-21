@@ -66,6 +66,7 @@ export default function YeniTeklifPage() {
   const isBlankBrand = brandId === 'markasiz';
   const useRedRowLines = brandId === 'guclumutfak' || brandId === 'inoks';
   const isMutproLook = brandId === 'mutpro';
+  const allowSiteCatalog = brandId === 'mutpro';
   const mutNavy = '#040023';
   const mutOrange = '#f97316';
   const mutCream = '#faf7f4';
@@ -511,6 +512,7 @@ export default function YeniTeklifPage() {
   };
 
   const runSiteSearch = useCallback(async (value: string, source: 'guclu' | 'cafemarkt' = siteSearchSource) => {
+    if (brandId !== 'mutpro') return;
     const q = value.trim();
     const seq = ++siteSearchSeq.current;
     if (q.length < 2) {
@@ -568,7 +570,7 @@ export default function YeniTeklifPage() {
     } finally {
       if (seq === siteSearchSeq.current) setSiteSearchLoading(false);
     }
-  }, [setProducts, siteSearchSource]);
+  }, [setProducts, siteSearchSource, brandId]);
 
   const handleSiteSearchInput = (value: string) => {
     setSiteSearch(value);
@@ -1857,6 +1859,7 @@ export default function YeniTeklifPage() {
       <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h3 className="text-sm font-bold text-gray-700 uppercase shrink-0">Ürün Ekle</h3>
+          {allowSiteCatalog && (
           <div className="relative flex-1 min-w-[260px] max-w-2xl mx-2">
             <div className="flex items-center gap-1 mb-1.5">
               <button
@@ -1947,6 +1950,7 @@ export default function YeniTeklifPage() {
             )}
             </div>
           </div>
+          )}
           <div className="flex items-center gap-2">
             <button onClick={() => setShowListImport(true)} className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-300 rounded-lg text-xs font-bold text-blue-700 hover:bg-blue-100 transition">
               <Upload className="w-3.5 h-3.5" /> İçe Aktar

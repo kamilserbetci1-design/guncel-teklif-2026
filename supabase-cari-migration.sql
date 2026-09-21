@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS cari_transactions (
   amount NUMERIC NOT NULL DEFAULT 0,
   payment_method TEXT,
   installments TEXT,
+  due_date TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

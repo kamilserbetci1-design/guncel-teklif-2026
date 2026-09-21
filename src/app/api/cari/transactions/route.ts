@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
     amount: Number(body.amount),
     payment_method: body.payment_method ? String(body.payment_method) : null,
     installments: body.installments ? String(body.installments) : null,
+    due_date: body.due_date ? String(body.due_date) : null,
   };
   if (!record.account_id || !record.date || !VALID_TYPES.includes(record.type) || !(record.amount > 0)) {
     return Response.json({ error: 'Eksik veya hatalı işlem bilgisi.' }, { status: 400 });

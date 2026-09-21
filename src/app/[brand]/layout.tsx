@@ -1,11 +1,12 @@
 'use client';
 
 import { useParams, useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { getBrand, VALID_BRAND_IDS } from '@/lib/brands';
 import { useAppStore } from '@/lib/store';
-import { LayoutDashboard, FileText, Package, Users, Upload, ArrowLeft, Menu, X, Tag, ClipboardList, Wallet, Boxes } from 'lucide-react';
+import { LayoutDashboard, FileText, Package, Users, Upload, ArrowLeft, Menu, X, Tag, ClipboardList, Wallet, Boxes, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { MutProLogin } from '@/components/MutProLogin';
 
 export default function BrandLayout({ children }: { children: React.ReactNode }) {
   const params = useParams();
@@ -15,6 +16,32 @@ export default function BrandLayout({ children }: { children: React.ReactNode })
   const brand = getBrand(brandId);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const hasHydrated = useAppStore((s) => s._hasHydrated);
+  const [mutproAuth, setMutproAuth] = useState<'loading' | 'ok' | 'login' | 'setup' | 'error'>(
+    brandId === 'mutpro' ? 'loading' : 'ok'
+  );
+  const [mutproAuthError, setMutproAuthError] = useState('');
+
+  const checkMutproAuth = useCallback(async () => {
+    if (brandId !== 'mutpro') { setMutproAuth('ok'); return; }
+    try {
+      const res = await fetch('/api/cari/auth', { cache: 'no-store' });
+      const data = await res.json();
+      if (!res.ok) {
+        setMutproAuthError(data.error || 'Sunucu hatası');
+        setMutproAuth('error');
+        return;
+      }
+      if (data.authenticated) setMutproAuth('ok');
+      else setMutproAuth(data.setupRequired ? 'setup' : 'login');
+    } catch {
+      setMutproAuthError('Sunucuya ulaşılamadı.');
+      setMutproAuth('error');
+    }
+  }, [brandId]);
+
+  useEffect(() => {
+    checkMutproAuth();
+  }, [checkMutproAuth, pathname]);
 
   useEffect(() => {
     if (!(VALID_BRAND_IDS as readonly string[]).includes(brandId)) {
@@ -40,6 +67,35 @@ export default function BrandLayout({ children }: { children: React.ReactNode })
   ];
 
   const isActive = (href: string) => pathname === href || pathname?.startsWith(href + '/');
+
+  if (!brand) return null;
+
+  if (brandId === 'mutpro' && mutproAuth !== 'ok') {
+    return (
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#F4F1EA' }}>
+        {mutproAuth === 'loading' && (
+          <div className="flex items-center text-gray-400 text-sm">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Kontrol ediliyor...
+          </div>
+        )}
+        {mutproAuth === 'error' && (
+          <div className="max-w-sm mx-auto bg-white rounded-2xl border border-amber-200 p-8 text-center">
+            <p className="text-sm text-gray-600 mb-4">{mutproAuthError}</p>
+            <button onClick={checkMutproAuth} className="px-5 py-2.5 rounded-lg text-white text-sm font-bold" style={{ background: '#040023' }}>
+              Tekrar Dene
+            </button>
+          </div>
+        )}
+        {(mutproAuth === 'login' || mutproAuth === 'setup') && (
+          <MutProLogin
+            setupRequired={mutproAuth === 'setup'}
+            title="MutPro Paneli"
+            onSuccess={() => setMutproAuth('ok')}
+          />
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex bg-gray-50">

@@ -8,8 +8,7 @@ import {
   getAuthUser,
   notConfigured,
   COOKIE_NAME,
-  SESSION_HOURS,
-  REMEMBER_DAYS,
+  SESSION_DAYS,
 } from '@/lib/cari-auth';
 
 export const dynamic = 'force-dynamic';
@@ -21,9 +20,7 @@ const baseCookieOpts = {
   path: '/',
 };
 
-// "Beni Hatırla" işaretliyse çerez 30 gün, değilse 24 saat yaşar
-const cookieMaxAge = (remember: boolean) =>
-  remember ? REMEMBER_DAYS * 24 * 60 * 60 : SESSION_HOURS * 60 * 60;
+const cookieMaxAge = () => SESSION_DAYS * 24 * 60 * 60;
 
 // Oturum durumu: giriş yapılmış mı, ilk kurulum gerekli mi?
 export async function GET(req: NextRequest) {
@@ -50,7 +47,6 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}));
   const username = String(body.username || '').trim().toLowerCase();
   const password = String(body.password || '');
-  const remember = body.remember === true;
   if (!username || !password) {
     return Response.json({ error: 'Kullanıcı adı ve şifre gerekli.' }, { status: 400 });
   }
@@ -68,7 +64,7 @@ export async function POST(req: NextRequest) {
       .insert({ username, password_hash: hashPassword(password) });
     if (error) return Response.json({ error: 'Kullanıcı oluşturulamadı: ' + error.message }, { status: 500 });
     const res = NextResponse.json({ ok: true, username, firstSetup: true });
-    res.cookies.set(COOKIE_NAME, createSessionToken(username, remember), { ...baseCookieOpts, maxAge: cookieMaxAge(remember) });
+    res.cookies.set(COOKIE_NAME, createSessionToken(username), { ...baseCookieOpts, maxAge: cookieMaxAge() });
     return res;
   }
 
@@ -83,7 +79,7 @@ export async function POST(req: NextRequest) {
   }
 
   const res = NextResponse.json({ ok: true, username });
-  res.cookies.set(COOKIE_NAME, createSessionToken(username, remember), { ...baseCookieOpts, maxAge: cookieMaxAge(remember) });
+  res.cookies.set(COOKIE_NAME, createSessionToken(username), { ...baseCookieOpts, maxAge: cookieMaxAge() });
   return res;
 }
 
