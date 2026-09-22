@@ -72,6 +72,14 @@ export function asciiSearchQuery(query: string) {
   return foldSearchText(query);
 }
 
+/** 412.G.GN.150.D.2 / CS-TEZ-3700 gibi ürün kodu aramaları. */
+export function isSkuLikeQuery(query: string) {
+  const compact = (query || '').trim().replace(/\s+/g, '');
+  if (compact.length < 5) return false;
+  if (!/^[A-Za-z0-9]+([.\-\/_][A-Za-z0-9]+)+$/.test(compact)) return false;
+  return /[0-9]/.test(compact) && /[A-Za-z]/.test(compact);
+}
+
 const variants = (token: string) => {
   const out = [token, ...(SYN[token] || [])];
   if (token.length >= 5) {

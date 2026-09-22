@@ -1,6 +1,6 @@
 import type { Product } from '@/lib/types';
 import { ensureWebsiteNetPrice, websiteNetPrice } from '@/lib/guclu-mutfak-catalog';
-import { asciiSearchQuery, scoreSearchText } from '@/lib/product-search';
+import { asciiSearchQuery, isSkuLikeQuery, scoreSearchText } from '@/lib/product-search';
 
 export const CAFEMARKT_UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
@@ -78,9 +78,37 @@ export function parseCafeMarktSearchHtml(html: string, pageUrl: string): Product
   return products;
 }
 
+const compactSku = (value: string) => value.replace(/\s+/g, '').toUpperCase();
+
+async function confirmProductsBySku(products: Product[], sku: string) {
+  const needle = compactSku(sku);
+  if (!needle || products.length === 0) return products;
+  const checks = await Promise.all(
+    products.slice(0, 8).map(async (p) => {
+      if (!p.product_link) return null;
+      try {
+        const res = await fetch(p.product_link, {
+          headers: { 'user-agent': CAFEMARKT_UA, accept: 'text/html,application/xhtml+xml', referer: `${BASE}/` },
+          cache: 'no-store',
+        });
+        if (!res.ok) return null;
+        const html = await res.text();
+        const compactHtml = compactSku(html);
+        if (!compactHtml.includes(needle)) return null;
+        return { ...p, sku: sku.trim() };
+      } catch {
+        return null;
+      }
+    })
+  );
+  const matched = checks.filter((p): p is Product => !!p);
+  return matched.length ? matched : products;
+}
+
 export async function searchCafeMarktProducts(query: string, page = 1) {
   const original = query.trim();
-  const q = asciiSearchQuery(original) || original;
+  const skuQuery = isSkuLikeQuery(original);
+  const q = skuQuery ? original : (asciiSearchQuery(original) || original);
   if (q.length < 2) {
     return { products: [] as Product[], total: 0, page: 1, pageCount: 1, hasMore: false, query: original };
   }
@@ -100,21 +128,23 @@ export async function searchCafeMarktProducts(query: string, page = 1) {
   };
 
   let hit = await fetchPage(q, page);
-  if (!hit.products.length && q.includes(' ')) {
+  if (!skuQuery && !hit.products.length && q.includes(' ')) {
     const fallback = q.split(/\s+/).sort((a, b) => b.length - a.length)[0];
     if (fallback && fallback !== q) hit = await fetchPage(fallback, page);
   }
-  const products = [...hit.products].sort(
-    (a, b) => scoreSearchText(`${b.name} ${b.manufacturer} ${b.sku}`, original || q) - scoreSearchText(`${a.name} ${a.manufacturer} ${a.sku}`, original || q)
-  );
-  const total = hit.shown || products.length;
-  const pageCount = Math.max(hit.maxPg, page);
+  let products = skuQuery
+    ? await confirmProductsBySku(hit.products, original)
+    : [...hit.products].sort(
+        (a, b) => scoreSearchText(`${b.name} ${b.manufacturer} ${b.sku}`, original || q) - scoreSearchText(`${a.name} ${a.manufacturer} ${a.sku}`, original || q)
+      );
+  const total = skuQuery ? products.length : (hit.shown || products.length);
+  const pageCount = skuQuery ? 1 : Math.max(hit.maxPg, page);
   return {
     products,
     total,
     page,
     pageCount,
-    hasMore: page < pageCount,
+    hasMore: !skuQuery && page < pageCount,
     query: original,
   };
 }
