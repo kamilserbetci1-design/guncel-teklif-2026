@@ -10,7 +10,7 @@ export async function POST(req: NextRequest) {
   if (!isCariConfigured()) return notConfigured();
   if (!getAuthUser(req)) return unauthorized();
   const body = await req.json().catch(() => ({}));
-  const record = {
+  const record: Record<string, unknown> = {
     id: Number(body.id) || Date.now(),
     account_id: Number(body.account_id),
     date: String(body.date || ''),
@@ -19,12 +19,18 @@ export async function POST(req: NextRequest) {
     amount: Number(body.amount),
     payment_method: body.payment_method ? String(body.payment_method) : null,
     installments: body.installments ? String(body.installments) : null,
-    due_date: body.due_date ? String(body.due_date) : null,
   };
-  if (!record.account_id || !record.date || !VALID_TYPES.includes(record.type) || !(record.amount > 0)) {
+  if (body.due_date) record.due_date = String(body.due_date);
+  if (!record.account_id || !record.date || !VALID_TYPES.includes(String(record.type)) || !(Number(record.amount) > 0)) {
     return Response.json({ error: 'Eksik veya hatalı işlem bilgisi.' }, { status: 400 });
   }
-  const { error } = await cariDb().from('cari_transactions').upsert(record);
+  const db = cariDb();
+  let { error } = await db.from('cari_transactions').upsert(record);
+  if (error && /due_date/i.test(error.message) && 'due_date' in record) {
+    const { due_date: _ignored, ...rest } = record;
+    const retry = await db.from('cari_transactions').upsert(rest);
+    error = retry.error;
+  }
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ ok: true, id: record.id });
 }

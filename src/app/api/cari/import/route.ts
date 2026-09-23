@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       // Eski sistemdeki "0025" tarih hatalarını düzelt
       let date = String(t.date || '');
       if (date.startsWith('0025')) date = date.replace('0025', '2025');
-      return {
+      const row: Record<string, unknown> = {
         id: Number(t.id),
         account_id: Number(t.customerId),
         date,
@@ -44,8 +44,10 @@ export async function POST(req: NextRequest) {
         amount: Number(t.amount) || 0,
         payment_method: t.paymentMethod ? String(t.paymentMethod) : null,
         installments: t.installments ? String(t.installments) : null,
-        due_date: t.dueDate || t.due_date ? String(t.dueDate || t.due_date) : null,
       };
+      const due = t.dueDate || t.due_date;
+      if (due) row.due_date = String(due);
+      return row;
     });
 
   const db = cariDb();
@@ -56,7 +58,13 @@ export async function POST(req: NextRequest) {
   for (let i = 0; i < txRows.length; i += 500) {
     const chunk = txRows.slice(i, i + 500);
     const txRes = await db.from('cari_transactions').upsert(chunk);
-    if (txRes.error) return Response.json({ error: 'Hareketler aktarılamadı: ' + txRes.error.message }, { status: 500 });
+    if (txRes.error && /due_date/i.test(txRes.error.message)) {
+      const stripped = chunk.map(({ due_date: _d, ...rest }) => rest);
+      const retry = await db.from('cari_transactions').upsert(stripped);
+      if (retry.error) return Response.json({ error: 'Hareketler aktarılamadı: ' + retry.error.message }, { status: 500 });
+    } else if (txRes.error) {
+      return Response.json({ error: 'Hareketler aktarılamadı: ' + txRes.error.message }, { status: 500 });
+    }
   }
 
   return Response.json({ ok: true, accounts: accountRows.length, transactions: txRows.length });

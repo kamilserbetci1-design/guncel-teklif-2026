@@ -901,15 +901,15 @@ function TransactionForm({ accountId, editing, onCancel, onSubmit }: {
     e.preventDefault();
     const amt = parseFloat(amount);
     if (!(amt > 0)) return;
-    const isCek = isPaymentType(type) && method === 'cek';
-    onSubmit({
+    const rec: Partial<CariTransaction> = {
       id: editing?.id,
       account_id: accountId,
       date, type, description: desc, amount: amt,
       payment_method: isPaymentType(type) ? method : null,
       installments: isPaymentType(type) && method === 'kart-taksit' ? installments : null,
-      due_date: isCek && dueDate ? dueDate : null,
-    });
+    };
+    if (isCek && dueDate) rec.due_date = dueDate;
+    onSubmit(rec);
     if (!editing) { setDesc(''); setAmount(''); setType('borc'); setDueDate(''); }
   };
 
@@ -920,7 +920,6 @@ function TransactionForm({ accountId, editing, onCancel, onSubmit }: {
     { v: 'odeme_al', label: 'ÖDEME AL', sub: '(+Tahsilat)', active: 'bg-emerald-500 border-emerald-500 text-white' },
   ];
 
-  const isCek = isPaymentType(type) && method === 'cek';
   const payTone = isCek
     ? { box: 'bg-amber-50 border-amber-200', label: 'text-amber-900', input: 'border-amber-200' }
     : { box: 'bg-emerald-50 border-emerald-100', label: 'text-emerald-800', input: 'border-emerald-200' };
