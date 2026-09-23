@@ -45,8 +45,7 @@ export async function POST(req: NextRequest) {
         payment_method: t.paymentMethod ? String(t.paymentMethod) : null,
         installments: t.installments ? String(t.installments) : null,
       };
-      const due = t.dueDate || t.due_date;
-      if (due) row.due_date = String(due);
+      // due_date kolonunu Supabase şeması güncellenene kadar yazmıyoruz
       return row;
     });
 
@@ -58,11 +57,7 @@ export async function POST(req: NextRequest) {
   for (let i = 0; i < txRows.length; i += 500) {
     const chunk = txRows.slice(i, i + 500);
     const txRes = await db.from('cari_transactions').upsert(chunk);
-    if (txRes.error && /due_date/i.test(txRes.error.message)) {
-      const stripped = chunk.map(({ due_date: _d, ...rest }) => rest);
-      const retry = await db.from('cari_transactions').upsert(stripped);
-      if (retry.error) return Response.json({ error: 'Hareketler aktarılamadı: ' + retry.error.message }, { status: 500 });
-    } else if (txRes.error) {
+    if (txRes.error) {
       return Response.json({ error: 'Hareketler aktarılamadı: ' + txRes.error.message }, { status: 500 });
     }
   }

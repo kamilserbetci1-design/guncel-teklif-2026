@@ -101,7 +101,7 @@ async function confirmProductsBySku(products: Product[], sku: string) {
       }
     })
   );
-  const matched = checks.filter((p): p is Product => !!p);
+  const matched = checks.filter((p) => p != null);
   return matched.length ? matched : products;
 }
 

@@ -20,17 +20,11 @@ export async function POST(req: NextRequest) {
     payment_method: body.payment_method ? String(body.payment_method) : null,
     installments: body.installments ? String(body.installments) : null,
   };
-  if (body.due_date) record.due_date = String(body.due_date);
   if (!record.account_id || !record.date || !VALID_TYPES.includes(String(record.type)) || !(Number(record.amount) > 0)) {
     return Response.json({ error: 'Eksik veya hatalı işlem bilgisi.' }, { status: 400 });
   }
   const db = cariDb();
-  let { error } = await db.from('cari_transactions').upsert(record);
-  if (error && /due_date/i.test(error.message) && 'due_date' in record) {
-    const { due_date: _ignored, ...rest } = record;
-    const retry = await db.from('cari_transactions').upsert(rest);
-    error = retry.error;
-  }
+  const { error } = await db.from('cari_transactions').upsert(record);
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ ok: true, id: record.id });
 }
