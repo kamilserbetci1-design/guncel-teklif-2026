@@ -896,6 +896,7 @@ function TransactionForm({ accountId, editing, onCancel, onSubmit }: {
   const [amount, setAmount] = useState<string>(editing ? String(editing.amount) : '');
   const [method, setMethod] = useState(editing?.payment_method || 'havale');
   const [installments, setInstallments] = useState(editing?.installments || '2');
+  const isCek = isPaymentType(type) && method === 'cek';
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
