@@ -4,10 +4,22 @@ import { foldSearchText, scoreSearchText, searchTokens } from '@/lib/product-sea
 const SITEMAP_URL = 'https://guclumutfak.com/products.xml';
 const UA =
   'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+const PRODUCT_REVALIDATE_SEC = 1800;
+const SEARCH_CACHE_MS = 2 * 60 * 1000;
 
 type SitemapCache = { at: number; urls: string[] };
 let sitemapCache: SitemapCache | null = null;
 const productCache = new Map<string, Product>();
+const searchCache = new Map<string, { at: number; data: SearchPage }>();
+
+type SearchPage = {
+  products: Product[];
+  total: number;
+  query: string;
+  offset: number;
+  fetched: number;
+  hasMore: boolean;
+};
 
 const asRecord = (v: unknown): Record<string, unknown> | null =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null;
@@ -146,7 +158,7 @@ async function fetchProductPage(url: string): Promise<Product | null> {
       'user-agent': UA,
       accept: 'text/html,application/xhtml+xml',
     },
-    cache: 'no-store',
+    next: { revalidate: PRODUCT_REVALIDATE_SEC },
   });
   if (!res.ok) return null;
   const html = await res.text();
@@ -188,10 +200,18 @@ export async function fetchWebsiteProductPage(page: number, pageSize: number) {
 
 const slugify = foldSearchText;
 
-export async function searchWebsiteProducts(query: string, offset = 0, limit = 40) {
+export async function searchWebsiteProducts(query: string, offset = 0, limit = 16) {
   const tokens = searchTokens(query);
   if (!tokens.length) {
-    return { products: [] as Product[], total: 0, query, offset, hasMore: false };
+    return { products: [] as Product[], total: 0, query, offset, fetched: 0, hasMore: false };
+  }
+
+  const start = Math.max(0, offset);
+  const pageSize = Math.max(1, Math.min(limit, 24));
+  const cacheKey = `${foldSearchText(query)}:${start}:${pageSize}`;
+  const cached = searchCache.get(cacheKey);
+  if (cached && Date.now() - cached.at < SEARCH_CACHE_MS) {
+    return cached.data;
   }
 
   const urls = await getProductSitemapUrls();
@@ -202,9 +222,8 @@ export async function searchWebsiteProducts(query: string, offset = 0, limit = 4
     .map((row) => row.url);
 
   const total = matchedUrls.length;
-  const start = Math.max(0, offset);
-  const slice = matchedUrls.slice(start, start + Math.max(1, Math.min(limit, 50)));
-  const rows = await mapPool(slice, 12, fetchProductPage);
+  const slice = matchedUrls.slice(start, start + pageSize);
+  const rows = await mapPool(slice, Math.min(16, slice.length || 1), fetchProductPage);
   const products = rows
     .filter((p): p is Product => Boolean(p))
     .map(ensureWebsiteNetPrice)
@@ -214,7 +233,7 @@ export async function searchWebsiteProducts(query: string, offset = 0, limit = 4
         scoreSearchText(`${a.name} ${a.category} ${a.manufacturer} ${a.sku}`, query)
     );
 
-  return {
+  const data: SearchPage = {
     products,
     total,
     query,
@@ -222,6 +241,8 @@ export async function searchWebsiteProducts(query: string, offset = 0, limit = 4
     fetched: start + slice.length,
     hasMore: start + slice.length < total,
   };
+  searchCache.set(cacheKey, { at: Date.now(), data });
+  return data;
 }
 
 export const catalogProductKey = (p: { id?: string; sku?: string; name?: string }) => {

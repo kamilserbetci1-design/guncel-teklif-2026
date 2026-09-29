@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   try {
     if (q) {
       const offset = Math.max(0, Number(url.searchParams.get('offset') || '0') || 0);
-      const limit = Math.min(50, Math.max(10, Number(url.searchParams.get('limit') || '40') || 40));
+      const limit = Math.min(24, Math.max(8, Number(url.searchParams.get('limit') || '16') || 16));
       const data = await searchWebsiteProducts(q, offset, limit);
       return NextResponse.json(data);
     }

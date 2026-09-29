@@ -574,12 +574,12 @@ export default function YeniTeklifPage() {
       return;
     }
     setSiteSearchLoading(true);
-    setSiteResults([]);
     setSiteSearchTotal(0);
     try {
       let all: typeof brandProducts = [];
       let total = 0;
       if (source === 'cafemarkt') {
+        setSiteResults([]);
         let page = 1;
         while (true) {
           const res = await fetch(`/api/cafemarkt/products?q=${encodeURIComponent(q)}&page=${page}`);
@@ -598,23 +598,16 @@ export default function YeniTeklifPage() {
           if (page > 40 || all.length > 4000) break;
         }
       } else {
-        let offset = 0;
-        while (true) {
-          const res = await fetch(`/api/guclu-mutfak/products?q=${encodeURIComponent(q)}&offset=${offset}&limit=40`);
-          if (seq !== siteSearchSeq.current) return;
-          const data = await res.json().catch(() => ({}));
-          const list = Array.isArray(data.products) ? data.products : [];
-          total = Number(data.total) || total;
-          all = [...all, ...list];
-          setSiteResults(all);
-          setSiteSearchTotal(total);
-          if (list.length) {
-            setProducts(mergeRegisteredWithWebsite(useAppStore.getState().products || [], list));
-          }
-          if (!data.hasMore) break;
-          offset = Number(data.fetched) || offset + list.length;
-          if (offset >= total || all.length >= total) break;
-          if (all.length > 4000) break;
+        const res = await fetch(`/api/guclu-mutfak/products?q=${encodeURIComponent(q)}&offset=0&limit=16`);
+        if (seq !== siteSearchSeq.current) return;
+        const data = await res.json().catch(() => ({}));
+        const list = Array.isArray(data.products) ? data.products : [];
+        total = Number(data.total) || list.length;
+        all = list;
+        setSiteResults(all);
+        setSiteSearchTotal(total);
+        if (list.length) {
+          setProducts(mergeRegisteredWithWebsite(useAppStore.getState().products || [], list));
         }
       }
     } catch {
@@ -637,7 +630,7 @@ export default function YeniTeklifPage() {
     setSiteSearchLoading(true);
     siteSearchTimer.current = setTimeout(() => {
       runSiteSearch(value, siteSearchSource);
-    }, 400);
+    }, 220);
   };
 
   const pickSiteSearchSource = (source: 'guclu' | 'cafemarkt') => {
