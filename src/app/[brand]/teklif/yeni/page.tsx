@@ -1316,29 +1316,32 @@ export default function YeniTeklifPage() {
   if (isPrintMode) {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="no-print mb-4 p-2.5 bg-white rounded-xl border shadow-sm overflow-x-auto">
-          <div className="flex items-center gap-2 min-w-max">
-            <button onClick={() => setIsPrintMode(false)} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 text-gray-600 hover:bg-gray-100 transition whitespace-nowrap"><ArrowLeft className="w-4 h-4" /> Geri</button>
-            <button
-              onClick={() => setViewMode(viewMode === 'liste' ? 'katalog' : 'liste')}
-              className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition whitespace-nowrap ${viewMode === 'katalog' ? 'bg-green-600 text-white' : 'bg-gray-700 text-white'}`}
-            >
-              {viewMode === 'liste' ? <><List className="w-4 h-4" /> Liste</> : <><LayoutGrid className="w-4 h-4" /> Katalog</>}
-            </button>
-            <select value={proposalTitle} onChange={(e) => setProposalTitle(e.target.value)} className="h-9 px-3 rounded-lg text-sm font-bold border border-gray-300 bg-white text-gray-700">
-              <option value="FİYAT TEKLİFİ">Fiyat Teklifi</option>
-              <option value="PROFORMA FATURA">Proforma Fatura</option>
-            </select>
-            <span className="w-px h-6 bg-gray-200 mx-1" />
-            <button onClick={handlePrint} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 bg-gray-800 text-white hover:bg-gray-900 transition whitespace-nowrap"><Printer className="w-4 h-4" /> Yazdır</button>
-            <button onClick={handleDownloadPDF} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition whitespace-nowrap ${isFormValid ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><FileDown className="w-4 h-4" /> PDF</button>
-            <button onClick={handleDownloadExcel} disabled={!isFormValid || excelBusy} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition whitespace-nowrap ${isFormValid && !excelBusy ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`} title="Müşteriye gönderilebilir, düzenlenebilir Excel"><FileSpreadsheet className="w-4 h-4" /> {excelBusy ? 'Hazırlanıyor…' : 'Excel'}</button>
-            <button onClick={handleDownloadJSON} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 bg-orange-500 text-white hover:bg-orange-600 transition whitespace-nowrap"><FileDown className="w-4 h-4" /> JSON</button>
-            {editId && (
-              <button onClick={handleRevise} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition whitespace-nowrap ${isFormValid ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Copy className="w-4 h-4" /> Revize Et</button>
-            )}
-            <button onClick={handleSave} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition whitespace-nowrap ${isFormValid ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Save className="w-4 h-4" /> Kaydet</button>
-            {!isFormValid && <span className="text-xs text-red-500 flex items-center gap-1 whitespace-nowrap"><AlertCircle className="w-3 h-3" /> Hazırlayan alanını doldurun</span>}
+        <div className="no-print mb-4 p-2 bg-white rounded-xl border shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <button onClick={() => setIsPrintMode(false)} className="h-8 px-2.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 text-gray-600 hover:bg-gray-100 transition"><ArrowLeft className="w-3.5 h-3.5" /> Geri</button>
+              <button
+                onClick={() => setViewMode(viewMode === 'liste' ? 'katalog' : 'liste')}
+                className={`h-8 px-2.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition ${viewMode === 'katalog' ? 'bg-green-600 text-white' : 'bg-gray-700 text-white'}`}
+              >
+                {viewMode === 'liste' ? <><List className="w-3.5 h-3.5" /> Liste</> : <><LayoutGrid className="w-3.5 h-3.5" /> Katalog</>}
+              </button>
+              <select value={proposalTitle} onChange={(e) => setProposalTitle(e.target.value)} className="h-8 px-2 rounded-lg text-xs font-bold border border-gray-300 bg-white text-gray-700">
+                <option value="FİYAT TEKLİFİ">Fiyat Teklifi</option>
+                <option value="PROFORMA FATURA">Proforma Fatura</option>
+              </select>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button onClick={handlePrint} className="h-8 px-2.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 bg-gray-800 text-white hover:bg-gray-900 transition"><Printer className="w-3.5 h-3.5" /> Yazdır</button>
+              <button onClick={handleDownloadPDF} disabled={!isFormValid} className={`h-8 px-2.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition ${isFormValid ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><FileDown className="w-3.5 h-3.5" /> PDF</button>
+              <button onClick={handleDownloadExcel} disabled={!isFormValid || excelBusy} className={`h-8 px-2.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition ${isFormValid && !excelBusy ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`} title="Müşteriye gönderilebilir, düzenlenebilir Excel"><FileSpreadsheet className="w-3.5 h-3.5" /> {excelBusy ? '…' : 'Excel'}</button>
+              <button onClick={handleDownloadJSON} className="h-8 px-2.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 bg-orange-500 text-white hover:bg-orange-600 transition"><FileDown className="w-3.5 h-3.5" /> JSON</button>
+              {editId && (
+                <button onClick={handleRevise} disabled={!isFormValid} className={`h-8 px-2.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition ${isFormValid ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Copy className="w-3.5 h-3.5" /> Revize</button>
+              )}
+              <button onClick={handleSave} disabled={!isFormValid} className={`h-8 px-2.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition ${isFormValid ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Save className="w-3.5 h-3.5" /> Kaydet</button>
+              {!isFormValid && <span className="text-[11px] text-red-500 inline-flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Hazırlayan gerekli</span>}
+            </div>
           </div>
         </div>
 
