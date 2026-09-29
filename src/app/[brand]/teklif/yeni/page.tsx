@@ -1122,8 +1122,8 @@ export default function YeniTeklifPage() {
     setSaving(true);
     try {
       if (editId) {
-        const no = nextRevisionNo(proposalNo, proposals);
-        await addProposal({ ...buildSavedProposal(`${Date.now()}`, no, 'draft'), proposal_date: getTodayDate() });
+        const current = buildSavedProposal(editId, proposalNo, editingProposal?.status || 'draft');
+        await updateProposal(editId, { ...current, id: editId, proposal_no: proposalNo, proposal_date: proposalDate, items });
       } else {
         await addProposal(buildSavedProposal(`${Date.now()}`, proposalNo, 'draft'));
       }
@@ -1133,6 +1133,25 @@ export default function YeniTeklifPage() {
     } catch (err) {
       console.error('handleSave error:', err);
       alert('Kaydetme sırasında bir hata oluştu. Lütfen tekrar deneyin.');
+      setSaving(false);
+    }
+  };
+
+  const handleRevise = async () => {
+    if (!editId) return handleSave();
+    if (!isFormValid) return alert('Teklifi Hazırlayan alanı zorunludur!');
+    rememberPreparedBy(preparedBy);
+    if (saving) return;
+    setSaving(true);
+    try {
+      const no = nextRevisionNo(proposalNo, proposals);
+      await addProposal({ ...buildSavedProposal(`${Date.now()}`, no, 'draft'), proposal_date: getTodayDate() });
+      await saveCustomerFromProposal();
+      await new Promise((r) => setTimeout(r, 300));
+      router.push(`/${brandId}/teklifler`);
+    } catch (err) {
+      console.error('handleRevise error:', err);
+      alert('Revize kaydı sırasında bir hata oluştu. Lütfen tekrar deneyin.');
       setSaving(false);
     }
   };
@@ -1177,15 +1196,10 @@ export default function YeniTeklifPage() {
     if (!isFormValid) return alert('PDF oluşturmak için "Teklifi Hazırlayan" alanı zorunludur!');
     rememberPreparedBy(preparedBy);
     try {
-      const saveNo = editId ? nextRevisionNo(proposalNo, proposals) : proposalNo;
-      if (editId && saveNo !== proposalNo) {
-        setProposalNo(saveNo);
-        await new Promise((r) => setTimeout(r, 80));
-      }
       const html2pdf = (await import('html2pdf.js')).default;
       const opt = {
         margin: [5, 5, 10, 5],
-        filename: `${saveNo}_${projectName || 'Teklif'}.pdf`,
+        filename: `${proposalNo}_${projectName || 'Teklif'}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
@@ -1194,11 +1208,10 @@ export default function YeniTeklifPage() {
       await html2pdf().set(opt).from(printRef.current).save();
 
       if (editId) {
-        const created = { ...buildSavedProposal(`${Date.now()}`, saveNo, 'sent'), proposal_date: getTodayDate() };
-        await addProposal(created);
-        router.replace(`/${brandId}/teklif/yeni?id=${created.id}`);
+        const current = buildSavedProposal(editId, proposalNo, 'sent');
+        await updateProposal(editId, { ...current, id: editId, proposal_no: proposalNo, proposal_date: proposalDate, items, status: 'sent' });
       } else {
-        await addProposal(buildSavedProposal(`${Date.now()}`, saveNo, 'sent'));
+        await addProposal(buildSavedProposal(`${Date.now()}`, proposalNo, 'sent'));
       }
     } catch {
       alert('PDF oluşturulurken hata oluştu.');
@@ -1309,7 +1322,10 @@ export default function YeniTeklifPage() {
           <button onClick={handleDownloadPDF} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition ${isFormValid ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><FileDown className="w-4 h-4" /> PDF</button>
           <button onClick={handleDownloadExcel} disabled={!isFormValid || excelBusy} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition ${isFormValid && !excelBusy ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`} title="Müşteriye gönderilebilir, düzenlenebilir Excel"><FileSpreadsheet className="w-4 h-4" /> {excelBusy ? 'Hazırlanıyor…' : 'Excel'}</button>
           <button onClick={handleDownloadJSON} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 bg-orange-500 text-white hover:bg-orange-600 transition"><FileDown className="w-4 h-4" /> JSON</button>
-          <button onClick={handleSave} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition ${isFormValid ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Save className="w-4 h-4" /> {editId ? 'Revize Kaydet' : 'Kaydet'}</button>
+          <button onClick={handleSave} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition ${isFormValid ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Save className="w-4 h-4" /> Kaydet</button>
+          {editId && (
+            <button onClick={handleRevise} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition ${isFormValid ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Copy className="w-4 h-4" /> Revize Et</button>
+          )}
           {!isFormValid && <span className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Hazırlayan alanını doldurun</span>}
         </div>
 
@@ -1675,24 +1691,19 @@ export default function YeniTeklifPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{editId ? 'Teklifi Revize Et' : 'Yeni Teklif Oluştur'}</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{editId ? 'Teklifi Düzenle' : 'Yeni Teklif Oluştur'}</h1>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-sm text-gray-500">{brand.fullName} •</span>
             <input
               type="text"
               value={proposalNo}
               onChange={(e) => setProposalNo(e.target.value)}
-              className="text-sm text-gray-500 bg-transparent outline-none border-b border-transparent hover:border-gray-300 focus:border-blue-500 font-medium"
-              style={{ width: `${Math.max(proposalNo.length * 8, 80)}px` }}
+              className="text-sm text-gray-500 bg-transparent outline-none border-b border-transparent hover:border-gray-300 focus:border-blue-500 font-medium min-w-[12ch]"
+              style={{ width: `${Math.max(proposalNo.length + 2, 14)}ch` }}
             />
             {editId && proposalRevision(proposalNo) > 1 && (
-              <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full whitespace-nowrap">
                 Revizyon {proposalRevision(proposalNo)}
-              </span>
-            )}
-            {editId && proposalRevision(proposalNo) === 1 && (
-              <span className="text-[10px] font-bold uppercase tracking-wide bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
-                Kayıtlı teklif — kaydetince önceki durur
               </span>
             )}
           </div>
@@ -1701,7 +1712,10 @@ export default function YeniTeklifPage() {
           <button onClick={createLabel} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-purple-700"><Truck className="w-4 h-4" /> Etiket Oluştur</button>
           <button onClick={() => setIsPrintMode(true)} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-900"><Eye className="w-4 h-4" /> Önizle</button>
           <button onClick={handleDownloadJSON} className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-orange-600"><FileDown className="w-4 h-4" /> JSON</button>
-          <button onClick={handleSave} disabled={!isFormValid || saving} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 ${isFormValid && !saving ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Save className="w-4 h-4" /> {saving ? 'Kaydediliyor...' : editId ? 'Revize Kaydet' : 'Kaydet'}</button>
+          <button onClick={handleSave} disabled={!isFormValid || saving} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 ${isFormValid && !saving ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Save className="w-4 h-4" /> {saving ? 'Kaydediliyor...' : 'Teklifi Kaydet'}</button>
+          {editId && (
+            <button onClick={handleRevise} disabled={!isFormValid || saving} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 ${isFormValid && !saving ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`} title="Önceki teklifi korur, yeni revizyon açar"><Copy className="w-4 h-4" /> Teklifi Revize Et</button>
+          )}
         </div>
       </div>
 

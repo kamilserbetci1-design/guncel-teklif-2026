@@ -2,7 +2,7 @@ import type { Proposal, ProposalItem } from '@/lib/types';
 import { foldSearchText } from '@/lib/product-search';
 
 export function baseProposalNo(no: string) {
-  return String(no || '').replace(/\/R\d+$/i, '').trim();
+  return String(no || '').replace(/\/R\d*$/i, '').trim();
 }
 
 export function proposalRevision(no: string) {
