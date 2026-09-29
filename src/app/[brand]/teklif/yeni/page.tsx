@@ -5,7 +5,8 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { getBrand } from '@/lib/brands';
 import { formatCurrency, getCurrencySymbol, numberToText, generateProposalNo, getTodayDate, getValidityDate, getValidityText, fetchExchangeRates, toTry, rateToTry, normalizeCurrency, lockedRatesFromProposal, fetchQuoteRates } from '@/lib/helpers';
-import type { ProposalItem, Proposal, PackageTemplate, PackageItem, PaymentType } from '@/lib/types';
+import type { ProposalItem, Proposal, PackageTemplate, PackageItem, PaymentType, Customer } from '@/lib/types';
+import { nextRevisionNo, cloneProposalItems, lastProposalForCustomer, proposalRevision } from '@/lib/proposal-revisions';
 import { PAYMENT_TYPES } from '@/lib/types';
 import { downloadProposalExcel } from '@/lib/proposal-excel';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
@@ -143,6 +144,9 @@ export default function YeniTeklifPage() {
   const [showProductSearch, setShowProductSearch] = useState(false);
   const [productSearch, setProductSearch] = useState('');
   const [showCustomerPicker, setShowCustomerPicker] = useState(false);
+  const [lastQuoteBanner, setLastQuoteBanner] = useState('');
+  const [pendingLastQuote, setPendingLastQuote] = useState<Proposal | null>(null);
+  const customerQuoteApplied = useRef(false);
 
   // New item form
   const [newItem, setNewItem] = useState({ name: '', description: '', price: '', cost: '', quantity: '1', image: '', product_link: '' });
@@ -206,6 +210,10 @@ export default function YeniTeklifPage() {
   };
 
   // Load existing proposal for editing
+  useEffect(() => {
+    setIsLoaded(false);
+  }, [editId]);
+
   useEffect(() => {
     if (!editingProposal || isLoaded) return;
     let cancelled = false;
@@ -644,13 +652,61 @@ export default function YeniTeklifPage() {
     }
   };
 
-  const selectCustomer = (c: any) => {
+  const applyProposalContent = useCallback((p: Proposal) => {
+    setProjectName(p.project_name || '');
+    setItems(cloneProposalItems(p.items));
+    setCurrency(p.currency || 'TRY');
+    if (p.discount_type === 'percent' && (p.discount_percent ?? 0) > 0) {
+      setDiscountMode('percent');
+      setDiscountValue(p.discount_percent || 0);
+    } else {
+      setDiscountMode('amount');
+      setDiscountValue(p.discount_value || 0);
+    }
+    setGlobalHidePrices(!!p.global_hide_prices);
+    setShowVAT(p.include_vat ?? true);
+    if (p.conditions) setConditions(p.conditions);
+    setPaidAmount(p.paid_amount || 0);
+    setPaymentType(p.payment_type || '');
+    if (p.fx_eur) setEurRate(p.fx_eur);
+    if (p.fx_usd) setUsdRate(p.fx_usd);
+    if (p.fx_gbp) setGbpRate(p.fx_gbp);
+    if (isBlankBrand) {
+      if (p.custom_header_name) setCustomHeaderName(p.custom_header_name);
+      if (p.custom_header_logo) setCustomHeaderLogo(p.custom_header_logo);
+    }
+  }, [isBlankBrand]);
+
+  const selectCustomer = (c: Customer, loadQuote = true) => {
     setCustomerName(c.name);
     setCustomerPhone(c.phone);
     setCustomerCity(c.city);
     setCustomerAddress(c.address);
     setShowCustomerPicker(false);
+    setPendingLastQuote(null);
+    if (editId || !loadQuote) return;
+    const last = lastProposalForCustomer(proposals, brandId, c);
+    if (!last) {
+      setLastQuoteBanner('');
+      return;
+    }
+    if (items.length > 0) {
+      setPendingLastQuote(last);
+      setLastQuoteBanner('');
+      return;
+    }
+    applyProposalContent(last);
+    setLastQuoteBanner(`${last.proposal_no} • ${(last.items || []).filter((i) => i.type !== 'section').length} kalem`);
   };
+
+  const musteriId = searchParams.get('musteri');
+  useEffect(() => {
+    if (editId || customerQuoteApplied.current || !musteriId) return;
+    const c = customers.find((x) => x.id === musteriId);
+    if (!c) return;
+    customerQuoteApplied.current = true;
+    selectCustomer(c, true);
+  }, [editId, musteriId, customers, selectCustomer]);
 
   const convertToTry = (amount: number, fromCurrency: string) => toTry(amount, fromCurrency, fxRates);
 
@@ -1031,6 +1087,34 @@ export default function YeniTeklifPage() {
 
   const fxSnapshot = { fx_eur: eurRate, fx_usd: usdRate, fx_gbp: gbpRate };
 
+  const buildSavedProposal = (id: string, no: string, status: Proposal['status']): Proposal => ({
+    id,
+    brand_id: brandId,
+    proposal_no: no,
+    proposal_date: proposalDate,
+    project_name: projectName,
+    customer_name: customerName,
+    customer_phone: customerPhone,
+    customer_city: customerCity,
+    customer_address: customerAddress,
+    prepared_by: preparedBy.trim(),
+    items: cloneProposalItems(items),
+    discount_value: discountAmount,
+    discount_type: discountMode,
+    discount_percent: discountMode === 'percent' ? discountValue : undefined,
+    paid_amount: paidAmount,
+    payment_type: paymentType,
+    currency,
+    include_vat: showVAT,
+    conditions,
+    global_hide_prices: globalHidePrices,
+    status,
+    total: finalTotal,
+    custom_header_name: isBlankBrand ? customHeaderName.trim() : undefined,
+    custom_header_logo: isBlankBrand ? customHeaderLogo : undefined,
+    ...fxSnapshot,
+  });
+
   const handleSave = async () => {
     if (!isFormValid) return alert('Teklifi Hazırlayan alanı zorunludur!');
     rememberPreparedBy(preparedBy);
@@ -1038,63 +1122,12 @@ export default function YeniTeklifPage() {
     setSaving(true);
     try {
       if (editId) {
-        await updateProposal(editId, {
-          proposal_no: proposalNo,
-          proposal_date: proposalDate,
-          project_name: projectName,
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          customer_city: customerCity,
-          customer_address: customerAddress,
-          prepared_by: preparedBy.trim(),
-          items,
-          discount_value: discountAmount,
-          discount_type: discountMode,
-          discount_percent: discountMode === 'percent' ? discountValue : undefined,
-          paid_amount: paidAmount,
-          payment_type: paymentType,
-          currency,
-          include_vat: showVAT,
-          conditions,
-          global_hide_prices: globalHidePrices,
-          total: finalTotal,
-          custom_header_name: isBlankBrand ? customHeaderName.trim() : undefined,
-          custom_header_logo: isBlankBrand ? customHeaderLogo : undefined,
-          ...fxSnapshot,
-        });
+        const no = nextRevisionNo(proposalNo, proposals);
+        await addProposal({ ...buildSavedProposal(`${Date.now()}`, no, 'draft'), proposal_date: getTodayDate() });
       } else {
-        const proposal: Proposal = {
-          id: Date.now().toString(),
-          brand_id: brandId,
-          proposal_no: proposalNo,
-          proposal_date: proposalDate,
-          project_name: projectName,
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          customer_city: customerCity,
-          customer_address: customerAddress,
-          prepared_by: preparedBy.trim(),
-          items,
-          discount_value: discountAmount,
-          discount_type: discountMode,
-          discount_percent: discountMode === 'percent' ? discountValue : undefined,
-          paid_amount: paidAmount,
-          payment_type: paymentType,
-          currency,
-          include_vat: showVAT,
-          conditions,
-          global_hide_prices: globalHidePrices,
-          status: 'draft',
-          total: finalTotal,
-          custom_header_name: isBlankBrand ? customHeaderName.trim() : undefined,
-          custom_header_logo: isBlankBrand ? customHeaderLogo : undefined,
-          ...fxSnapshot,
-        };
-        await addProposal(proposal);
+        await addProposal(buildSavedProposal(`${Date.now()}`, proposalNo, 'draft'));
       }
-      // Müşteri adını Müşteriler listesine de kaydet (yoksa)
       await saveCustomerFromProposal();
-      // IndexedDB yazmasının tamamlanması için kısa bekleme (alert event loop'u bloklar)
       await new Promise((r) => setTimeout(r, 300));
       router.push(`/${brandId}/teklifler`);
     } catch (err) {
@@ -1144,10 +1177,15 @@ export default function YeniTeklifPage() {
     if (!isFormValid) return alert('PDF oluşturmak için "Teklifi Hazırlayan" alanı zorunludur!');
     rememberPreparedBy(preparedBy);
     try {
+      const saveNo = editId ? nextRevisionNo(proposalNo, proposals) : proposalNo;
+      if (editId && saveNo !== proposalNo) {
+        setProposalNo(saveNo);
+        await new Promise((r) => setTimeout(r, 80));
+      }
       const html2pdf = (await import('html2pdf.js')).default;
       const opt = {
         margin: [5, 5, 10, 5],
-        filename: `${proposalNo}_${projectName || 'Teklif'}.pdf`,
+        filename: `${saveNo}_${projectName || 'Teklif'}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true, logging: false },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
@@ -1155,62 +1193,12 @@ export default function YeniTeklifPage() {
       };
       await html2pdf().set(opt).from(printRef.current).save();
 
-      // PDF indirildiğinde otomatik olarak geçmişe kaydet veya güncelle
       if (editId) {
-        await updateProposal(editId, {
-          proposal_no: proposalNo,
-          proposal_date: proposalDate,
-          project_name: projectName,
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          customer_city: customerCity,
-          customer_address: customerAddress,
-          prepared_by: preparedBy.trim(),
-          items,
-          discount_value: discountAmount,
-          discount_type: discountMode,
-          discount_percent: discountMode === 'percent' ? discountValue : undefined,
-          paid_amount: paidAmount,
-          payment_type: paymentType,
-          currency,
-          include_vat: showVAT,
-          conditions,
-          global_hide_prices: globalHidePrices,
-          status: 'sent',
-          total: finalTotal,
-          custom_header_name: isBlankBrand ? customHeaderName.trim() : undefined,
-          custom_header_logo: isBlankBrand ? customHeaderLogo : undefined,
-          ...fxSnapshot,
-        });
+        const created = { ...buildSavedProposal(`${Date.now()}`, saveNo, 'sent'), proposal_date: getTodayDate() };
+        await addProposal(created);
+        router.replace(`/${brandId}/teklif/yeni?id=${created.id}`);
       } else {
-        const proposal: Proposal = {
-          id: Date.now().toString(),
-          brand_id: brandId,
-          proposal_no: proposalNo,
-          proposal_date: proposalDate,
-          project_name: projectName,
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          customer_city: customerCity,
-          customer_address: customerAddress,
-          prepared_by: preparedBy.trim(),
-          items,
-          discount_value: discountAmount,
-          discount_type: discountMode,
-          discount_percent: discountMode === 'percent' ? discountValue : undefined,
-          paid_amount: paidAmount,
-          payment_type: paymentType,
-          currency,
-          include_vat: showVAT,
-          conditions,
-          global_hide_prices: globalHidePrices,
-          status: 'sent',
-          total: finalTotal,
-          custom_header_name: isBlankBrand ? customHeaderName.trim() : undefined,
-          custom_header_logo: isBlankBrand ? customHeaderLogo : undefined,
-          ...fxSnapshot,
-        };
-        await addProposal(proposal);
+        await addProposal(buildSavedProposal(`${Date.now()}`, saveNo, 'sent'));
       }
     } catch {
       alert('PDF oluşturulurken hata oluştu.');
@@ -1321,7 +1309,7 @@ export default function YeniTeklifPage() {
           <button onClick={handleDownloadPDF} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition ${isFormValid ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><FileDown className="w-4 h-4" /> PDF</button>
           <button onClick={handleDownloadExcel} disabled={!isFormValid || excelBusy} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition ${isFormValid && !excelBusy ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`} title="Müşteriye gönderilebilir, düzenlenebilir Excel"><FileSpreadsheet className="w-4 h-4" /> {excelBusy ? 'Hazırlanıyor…' : 'Excel'}</button>
           <button onClick={handleDownloadJSON} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 bg-orange-500 text-white hover:bg-orange-600 transition"><FileDown className="w-4 h-4" /> JSON</button>
-          <button onClick={handleSave} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition ${isFormValid ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Save className="w-4 h-4" /> Kaydet</button>
+          <button onClick={handleSave} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition ${isFormValid ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Save className="w-4 h-4" /> {editId ? 'Revize Kaydet' : 'Kaydet'}</button>
           {!isFormValid && <span className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Hazırlayan alanını doldurun</span>}
         </div>
 
@@ -1687,7 +1675,7 @@ export default function YeniTeklifPage() {
       {/* Top bar */}
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Yeni Teklif Oluştur</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{editId ? 'Teklifi Revize Et' : 'Yeni Teklif Oluştur'}</h1>
           <div className="flex items-center gap-2 mt-1">
             <span className="text-sm text-gray-500">{brand.fullName} •</span>
             <input
@@ -1697,13 +1685,23 @@ export default function YeniTeklifPage() {
               className="text-sm text-gray-500 bg-transparent outline-none border-b border-transparent hover:border-gray-300 focus:border-blue-500 font-medium"
               style={{ width: `${Math.max(proposalNo.length * 8, 80)}px` }}
             />
+            {editId && proposalRevision(proposalNo) > 1 && (
+              <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                Revizyon {proposalRevision(proposalNo)}
+              </span>
+            )}
+            {editId && proposalRevision(proposalNo) === 1 && (
+              <span className="text-[10px] font-bold uppercase tracking-wide bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">
+                Kayıtlı teklif — kaydetince önceki durur
+              </span>
+            )}
           </div>
         </div>
         <div className="flex gap-2 w-full sm:w-auto flex-wrap [&>button]:flex-1 sm:[&>button]:flex-none [&>button]:justify-center">
           <button onClick={createLabel} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-purple-700"><Truck className="w-4 h-4" /> Etiket Oluştur</button>
           <button onClick={() => setIsPrintMode(true)} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-900"><Eye className="w-4 h-4" /> Önizle</button>
           <button onClick={handleDownloadJSON} className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-orange-600"><FileDown className="w-4 h-4" /> JSON</button>
-          <button onClick={handleSave} disabled={!isFormValid || saving} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 ${isFormValid && !saving ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Save className="w-4 h-4" /> {saving ? 'Kaydediliyor...' : 'Kaydet'}</button>
+          <button onClick={handleSave} disabled={!isFormValid || saving} className={`px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 ${isFormValid && !saving ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Save className="w-4 h-4" /> {saving ? 'Kaydediliyor...' : editId ? 'Revize Kaydet' : 'Kaydet'}</button>
         </div>
       </div>
 
@@ -1780,6 +1778,28 @@ export default function YeniTeklifPage() {
                 {c.city && <span className="text-gray-500 ml-2">• {c.city}</span>}
               </button>
             ))}
+          </div>
+        )}
+
+        {lastQuoteBanner && !editId && (
+          <div className="mb-4 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+            Son teklif yüklendi: {lastQuoteBanner}. Kalemleri, kuru ve koşulları değiştirebilirsiniz.
+          </div>
+        )}
+        {pendingLastQuote && !editId && (
+          <div className="mb-4 flex flex-wrap items-center gap-2 text-xs font-semibold text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
+            <span>Bu müşterinin son teklifi var: {pendingLastQuote.proposal_no}</span>
+            <button
+              type="button"
+              onClick={() => {
+                applyProposalContent(pendingLastQuote);
+                setLastQuoteBanner(`${pendingLastQuote.proposal_no} • ${(pendingLastQuote.items || []).filter((i) => i.type !== 'section').length} kalem`);
+                setPendingLastQuote(null);
+              }}
+              className="px-2 py-1 rounded-md bg-blue-600 text-white font-bold"
+            >
+              Son teklifi yükle
+            </button>
           </div>
         )}
 

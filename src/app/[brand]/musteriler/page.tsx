@@ -1,9 +1,10 @@
 'use client';
 
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { useAppStore } from '@/lib/store';
 import { getBrand } from '@/lib/brands';
-import { Search, Plus, Trash2, Edit2, X, Save, Users } from 'lucide-react';
+import { Search, Plus, Trash2, Edit2, X, Save, Users, FileText } from 'lucide-react';
 import { useState } from 'react';
 import type { Customer } from '@/lib/types';
 import { foldedIncludes } from '@/lib/product-search';
@@ -166,6 +167,13 @@ export default function MusterilerPage() {
               <div className="flex items-start justify-between mb-2">
                 <div className="font-bold text-gray-900">{c.name}</div>
                 <div className="flex gap-1">
+                  <Link
+                    href={`/${brandId}/teklif/yeni?musteri=${encodeURIComponent(c.id)}`}
+                    className="p-1.5 rounded-lg text-gray-400 hover:bg-emerald-50 hover:text-emerald-700 transition"
+                    title="Bu müşteriden teklif aç"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                  </Link>
                   <button onClick={() => handleEdit(c)} className="p-1.5 rounded-lg text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition"><Edit2 className="w-3.5 h-3.5" /></button>
                   <button onClick={() => handleDelete(c.id)} className="p-1.5 rounded-lg text-gray-400 hover:bg-red-50 hover:text-red-500 transition"><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>

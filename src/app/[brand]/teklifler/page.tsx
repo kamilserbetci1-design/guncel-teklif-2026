@@ -4,7 +4,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { getBrand } from '@/lib/brands';
 import { formatCurrency, getCurrencySymbol } from '@/lib/helpers';
-import { Search, Trash2, Clock, CheckCircle, XCircle, Eye, Send, Upload, UserCheck, Calendar, FileText, Copy, FileDown } from 'lucide-react';
+import { Search, Trash2, Clock, CheckCircle, XCircle, Eye, Send, Upload, UserCheck, Calendar, FileText, Copy, FileDown, ChevronDown } from 'lucide-react';
+import { groupProposalsByRevision, proposalRevision } from '@/lib/proposal-revisions';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useState, useRef } from 'react';
 import type { ProposalStatus, Proposal } from '@/lib/types';
@@ -24,6 +25,7 @@ export default function TekliflerPage() {
   const [preparedByFilter, setPreparedByFilter] = useState('');
   const [dateFilter, setDateFilter] = useState('');
   const [showUpload, setShowUpload] = useState(false);
+  const [openRevisionGroups, setOpenRevisionGroups] = useState<Record<string, boolean>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Tüm hazırlayan kişileri bul (benzersiz)
@@ -40,6 +42,8 @@ export default function TekliflerPage() {
       const hay = [p.project_name, stripHtml(p.customer_name || ''), p.proposal_no, p.prepared_by].join(' ');
       return foldedIncludes(hay, search);
     });
+
+  const revisionGroups = groupProposalsByRevision(brandProposals);
 
   const handleDelete = (id: string) => {
     if (confirm('Bu teklifi silmek istediğinize emin misiniz?')) {
@@ -299,6 +303,72 @@ export default function TekliflerPage() {
     { value: 'rejected', label: 'Reddedildi' },
   ];
 
+  const renderProposalCard = (p: Proposal, nested = false) => {
+    const rev = proposalRevision(p.proposal_no);
+    return (
+      <div
+        key={p.id}
+        className={`bg-white rounded-xl border p-4 shadow-sm hover:shadow-md transition cursor-pointer ${nested ? 'border-amber-200 bg-amber-50/40' : 'border-gray-200'}`}
+        onClick={() => router.push(`/${brandId}/teklif/yeni?id=${p.id}`)}
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <input
+                type="text"
+                value={p.project_name || ''}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => updateProposal(p.id, { project_name: e.target.value })}
+                className="text-base font-bold text-gray-900 bg-transparent outline-none border-b border-transparent hover:border-gray-300 focus:border-blue-500 truncate min-w-0 flex-1"
+                placeholder="İsimsiz Proje"
+              />
+              {rev > 1 && (
+                <span className="text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full">
+                  R{rev}
+                </span>
+              )}
+              <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_COLORS[p.status]}`}>
+                {STATUS_LABELS[p.status]}
+              </span>
+            </div>
+            <div className="text-sm text-gray-500">
+              <span className="font-medium text-gray-700">{stripHtml(p.customer_name || '') || 'Müşteri Yok'}</span>
+              <span className="mx-2">•</span>
+              <span>{p.proposal_no}</span>
+              <span className="mx-2">•</span>
+              <span>{p.proposal_date}</span>
+              {p.prepared_by && (
+                <>
+                  <span className="mx-2">•</span>
+                  <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-medium">
+                    <UserCheck className="w-3 h-3" /> {p.prepared_by}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="text-lg font-extrabold text-gray-900 whitespace-nowrap">
+              ₺{p.total.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+            </span>
+            <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+              <button onClick={() => handleStatusChange(p.id, 'sent')} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition" title="Gönderildi"><Send className="w-3.5 h-3.5" /></button>
+              <button onClick={() => handleStatusChange(p.id, 'viewed')} className="p-1.5 rounded-lg bg-yellow-50 text-yellow-600 hover:bg-yellow-100 transition" title="Görüntülendi"><Eye className="w-3.5 h-3.5" /></button>
+              <button onClick={() => handleStatusChange(p.id, 'approved')} className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition" title="Onaylandı"><CheckCircle className="w-3.5 h-3.5" /></button>
+              <button onClick={() => handleStatusChange(p.id, 'rejected')} className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition" title="Reddedildi"><XCircle className="w-3.5 h-3.5" /></button>
+              {p.pdf_url && (
+                <a href={p.pdf_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="p-1.5 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 transition" title="PDF İndir"><FileDown className="w-3.5 h-3.5" /></a>
+              )}
+              <button onClick={() => duplicateProposal(p)} className="p-1.5 rounded-lg bg-purple-50 text-purple-500 hover:bg-purple-100 transition" title="Çoğalt"><Copy className="w-3.5 h-3.5" /></button>
+              <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition" title="Sil"><Trash2 className="w-3.5 h-3.5" /></button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between flex-wrap gap-3">
@@ -417,63 +487,31 @@ export default function TekliflerPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          <div className="text-xs text-gray-400 font-medium">{brandProposals.length} teklif bulundu</div>
-          {brandProposals.map((p) => (
-            <div key={p.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm hover:shadow-md transition cursor-pointer" onClick={() => router.push(`/${brandId}/teklif/yeni?id=${p.id}`)}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <FileText className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                    <input
-                      type="text"
-                      value={p.project_name || ''}
-                      onClick={(e) => e.stopPropagation()}
-                      onChange={(e) => updateProposal(p.id, { project_name: e.target.value })}
-                      className="text-base font-bold text-gray-900 bg-transparent outline-none border-b border-transparent hover:border-gray-300 focus:border-blue-500 truncate min-w-0 flex-1"
-                      placeholder="İsimsiz Proje"
-                    />
-                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_COLORS[p.status]}`}>
-                      {STATUS_LABELS[p.status]}
-                    </span>
+          <div className="text-xs text-gray-400 font-medium">
+            {revisionGroups.length} teklif{brandProposals.length !== revisionGroups.length ? ` • ${brandProposals.length} kayıt (revizyonlar dahil)` : ''}
+          </div>
+          {revisionGroups.map((group) => {
+            const older = group.revisions.slice(1);
+            const open = !!openRevisionGroups[group.key];
+            return (
+              <div key={group.key} className="space-y-2">
+                {renderProposalCard(group.latest)}
+                {older.length > 0 && (
+                  <div className="pl-4">
+                    <button
+                      type="button"
+                      onClick={() => setOpenRevisionGroups((s) => ({ ...s, [group.key]: !s[group.key] }))}
+                      className="mb-2 inline-flex items-center gap-1 text-xs font-bold text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-1 hover:bg-amber-100"
+                    >
+                      <ChevronDown className={`w-3.5 h-3.5 transition ${open ? 'rotate-180' : ''}`} />
+                      {older.length} önceki revizyon
+                    </button>
+                    {open && <div className="space-y-2">{older.map((p) => renderProposalCard(p, true))}</div>}
                   </div>
-                  <div className="text-sm text-gray-500">
-                    <span className="font-medium text-gray-700">{stripHtml(p.customer_name || '') || 'Müşteri Yok'}</span>
-                    <span className="mx-2">•</span>
-                    <span>{p.proposal_no}</span>
-                    <span className="mx-2">•</span>
-                    <span>{p.proposal_date}</span>
-                    {p.prepared_by && (
-                      <>
-                        <span className="mx-2">•</span>
-                        <span className="inline-flex items-center gap-1 text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded font-medium">
-                          <UserCheck className="w-3 h-3" /> {p.prepared_by}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <span className="text-lg font-extrabold text-gray-900 whitespace-nowrap">
-                    ₺{p.total.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
-                  </span>
-
-                  {/* Status Actions */}
-                  <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
-                    <button onClick={() => handleStatusChange(p.id, 'sent')} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition" title="Gönderildi"><Send className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => handleStatusChange(p.id, 'viewed')} className="p-1.5 rounded-lg bg-yellow-50 text-yellow-600 hover:bg-yellow-100 transition" title="Görüntülendi"><Eye className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => handleStatusChange(p.id, 'approved')} className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition" title="Onaylandı"><CheckCircle className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => handleStatusChange(p.id, 'rejected')} className="p-1.5 rounded-lg bg-red-50 text-red-600 hover:bg-red-100 transition" title="Reddedildi"><XCircle className="w-3.5 h-3.5" /></button>
-                    {p.pdf_url && (
-                      <a href={p.pdf_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="p-1.5 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 transition" title="PDF İndir"><FileDown className="w-3.5 h-3.5" /></a>
-                    )}
-                    <button onClick={() => duplicateProposal(p)} className="p-1.5 rounded-lg bg-purple-50 text-purple-500 hover:bg-purple-100 transition" title="Çoğalt"><Copy className="w-3.5 h-3.5" /></button>
-                    <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition" title="Sil"><Trash2 className="w-3.5 h-3.5" /></button>
-                  </div>
-                </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
