@@ -16,7 +16,7 @@ import ListImportModal from '@/components/ListImportModal';
 import type { ImportPick } from '@/components/ListImportModal';
 import {
   Plus, Trash2, Copy, GripVertical, Eye, EyeOff, Truck, Save, FileDown,
-  Printer, ArrowLeft, Search, Users, ChevronDown, RefreshCw, Package, UserCheck, AlertCircle, Boxes, X, Calendar,
+  Printer, ArrowLeft, Search, Users, ChevronDown, RefreshCw, Package, UserCheck, AlertCircle, Boxes, X,
   List, LayoutGrid, ImagePlus, Type, StickyNote, ChevronUp, Check, FileSpreadsheet, Upload, Globe
 } from 'lucide-react';
 import { mergeRegisteredWithWebsite, ensureWebsiteNetPrice } from '@/lib/guclu-mutfak-catalog';
@@ -1169,23 +1169,6 @@ export default function YeniTeklifPage() {
     } catch { /* tarihi kur yoksa mevcut kur kalır */ }
   };
 
-  const datePicker = (
-    <div className="flex flex-wrap items-center gap-2">
-      <label className="inline-flex items-center gap-2 text-xs font-bold text-gray-600">
-        <Calendar className="w-3.5 h-3.5" />
-        Teklif Tarihi
-        <input
-          type="date"
-          value={trDateToIso(proposalDate)}
-          onChange={(e) => applyProposalDate(isoToTrDate(e.target.value))}
-          className="h-9 px-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-800 bg-white"
-        />
-      </label>
-      <button type="button" onClick={() => applyProposalDate(getTodayDate())} className="h-9 px-3 rounded-lg text-xs font-bold border border-gray-200 text-gray-600 hover:bg-gray-50">Bugün</button>
-      <button type="button" onClick={() => applyProposalDate(shiftTrDate(getTodayDate(), 1))} className="h-9 px-3 rounded-lg text-xs font-bold border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100">Yarın</button>
-    </div>
-  );
-
   // Tekliften kargo etiketi oluştur: alıcı bilgileri + ürün adları (maddeli) kargo sayfasına taşınır
   const createLabel = () => {
     const esc = (s: string) => (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1333,31 +1316,29 @@ export default function YeniTeklifPage() {
   if (isPrintMode) {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="no-print mb-4 p-3 bg-white rounded-xl border shadow-sm space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <button onClick={() => setIsPrintMode(false)} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 text-gray-600 hover:bg-gray-100 transition shrink-0"><ArrowLeft className="w-4 h-4" /> Geri</button>
+        <div className="no-print mb-4 p-2.5 bg-white rounded-xl border shadow-sm overflow-x-auto">
+          <div className="flex items-center gap-2 min-w-max">
+            <button onClick={() => setIsPrintMode(false)} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 text-gray-600 hover:bg-gray-100 transition whitespace-nowrap"><ArrowLeft className="w-4 h-4" /> Geri</button>
             <button
               onClick={() => setViewMode(viewMode === 'liste' ? 'katalog' : 'liste')}
-              className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition shrink-0 ${viewMode === 'katalog' ? 'bg-green-600 text-white' : 'bg-gray-700 text-white'}`}
+              className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition whitespace-nowrap ${viewMode === 'katalog' ? 'bg-green-600 text-white' : 'bg-gray-700 text-white'}`}
             >
               {viewMode === 'liste' ? <><List className="w-4 h-4" /> Liste</> : <><LayoutGrid className="w-4 h-4" /> Katalog</>}
             </button>
-            <select value={proposalTitle} onChange={(e) => setProposalTitle(e.target.value)} className="h-9 px-3 rounded-lg text-sm font-bold border border-gray-300 bg-white text-gray-700 shrink-0">
+            <select value={proposalTitle} onChange={(e) => setProposalTitle(e.target.value)} className="h-9 px-3 rounded-lg text-sm font-bold border border-gray-300 bg-white text-gray-700">
               <option value="FİYAT TEKLİFİ">Fiyat Teklifi</option>
               <option value="PROFORMA FATURA">Proforma Fatura</option>
             </select>
-            {datePicker}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button onClick={handlePrint} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 bg-gray-800 text-white hover:bg-gray-900 transition shrink-0"><Printer className="w-4 h-4" /> Yazdır</button>
-            <button onClick={handleDownloadPDF} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition shrink-0 ${isFormValid ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><FileDown className="w-4 h-4" /> PDF</button>
-            <button onClick={handleDownloadExcel} disabled={!isFormValid || excelBusy} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition shrink-0 ${isFormValid && !excelBusy ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`} title="Müşteriye gönderilebilir, düzenlenebilir Excel"><FileSpreadsheet className="w-4 h-4" /> {excelBusy ? 'Hazırlanıyor…' : 'Excel'}</button>
-            <button onClick={handleDownloadJSON} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 bg-orange-500 text-white hover:bg-orange-600 transition shrink-0"><FileDown className="w-4 h-4" /> JSON</button>
+            <span className="w-px h-6 bg-gray-200 mx-1" />
+            <button onClick={handlePrint} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 bg-gray-800 text-white hover:bg-gray-900 transition whitespace-nowrap"><Printer className="w-4 h-4" /> Yazdır</button>
+            <button onClick={handleDownloadPDF} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition whitespace-nowrap ${isFormValid ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><FileDown className="w-4 h-4" /> PDF</button>
+            <button onClick={handleDownloadExcel} disabled={!isFormValid || excelBusy} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition whitespace-nowrap ${isFormValid && !excelBusy ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`} title="Müşteriye gönderilebilir, düzenlenebilir Excel"><FileSpreadsheet className="w-4 h-4" /> {excelBusy ? 'Hazırlanıyor…' : 'Excel'}</button>
+            <button onClick={handleDownloadJSON} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 bg-orange-500 text-white hover:bg-orange-600 transition whitespace-nowrap"><FileDown className="w-4 h-4" /> JSON</button>
             {editId && (
-              <button onClick={handleRevise} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition shrink-0 ${isFormValid ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Copy className="w-4 h-4" /> Revize Et</button>
+              <button onClick={handleRevise} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition whitespace-nowrap ${isFormValid ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Copy className="w-4 h-4" /> Revize Et</button>
             )}
-            <button onClick={handleSave} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition shrink-0 ${isFormValid ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Save className="w-4 h-4" /> Kaydet</button>
-            {!isFormValid && <span className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Hazırlayan alanını doldurun</span>}
+            <button onClick={handleSave} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition whitespace-nowrap ${isFormValid ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Save className="w-4 h-4" /> Kaydet</button>
+            {!isFormValid && <span className="text-xs text-red-500 flex items-center gap-1 whitespace-nowrap"><AlertCircle className="w-3 h-3" /> Hazırlayan alanını doldurun</span>}
           </div>
         </div>
 
@@ -1849,69 +1830,59 @@ export default function YeniTeklifPage() {
           </div>
         )}
 
-        {/* Teklifi Hazırlayan — Zorunlu Alan */}
-        <div className="mb-4">
-          <label className="block text-xs font-bold text-gray-500 mb-1 flex items-center gap-1">
-            <UserCheck className="w-3.5 h-3.5" /> Teklifi Hazırlayan *
-          </label>
-          <div className="relative space-y-2">
-            <div className="relative w-full md:w-80">
-              <select
-                value={preparedByCustom || (preparedBy && !preparedByOptions.includes(preparedBy)) ? '__custom__' : preparedBy}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  preparedByAutoFilled.current = true;
-                  if (v === '__custom__') {
-                    setPreparedByCustom(true);
-                    setPreparedBy('');
-                    return;
-                  }
-                  setPreparedByCustom(false);
-                  setPreparedBy(v);
-                  rememberPreparedBy(v);
-                }}
-                className={`w-full appearance-none p-2 pr-8 border rounded-lg text-sm font-semibold ${!preparedBy.trim() ? 'border-red-400 bg-red-50' : 'border-green-400 bg-green-50'}`}
-              >
-                <option value="" disabled>
-                  {preparedByOptions.length ? 'Hazırlayan seçin' : 'Kayıtlı isim yok — yeni yazın'}
-                </option>
-                {preparedByOptions.map((name) => (
-                  <option key={name} value={name}>{name}</option>
-                ))}
-                <option value="__custom__">Yeni isim yaz...</option>
-              </select>
-              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-            </div>
-            {(preparedByCustom || (preparedBy && !preparedByOptions.includes(preparedBy))) && (
-              <input
-                type="text"
-                value={preparedBy}
-                autoFocus
-                onChange={(e) => {
-                  preparedByAutoFilled.current = true;
-                  setPreparedBy(e.target.value);
-                  rememberPreparedBy(e.target.value);
-                }}
-                className={`w-full md:w-80 p-2 border rounded-lg text-sm font-semibold ${!preparedBy.trim() ? 'border-red-400 bg-red-50' : 'border-green-400 bg-green-50'}`}
-                placeholder="Adınızı yazın"
-              />
-            )}
-            {!preparedBy.trim() && (
-              <div className="flex items-center gap-1 mt-1 text-red-500 text-xs">
-                <AlertCircle className="w-3 h-3" /> Bu alan zorunludur — listeden seçin veya yeni isim yazın
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1 flex items-center gap-1">
+              <UserCheck className="w-3.5 h-3.5" /> Teklifi Hazırlayan *
+            </label>
+            <div className="relative space-y-2">
+              <div className="relative w-full">
+                <select
+                  value={preparedByCustom || (preparedBy && !preparedByOptions.includes(preparedBy)) ? '__custom__' : preparedBy}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    preparedByAutoFilled.current = true;
+                    if (v === '__custom__') {
+                      setPreparedByCustom(true);
+                      setPreparedBy('');
+                      return;
+                    }
+                    setPreparedByCustom(false);
+                    setPreparedBy(v);
+                    rememberPreparedBy(v);
+                  }}
+                  className={`w-full appearance-none p-2 pr-8 border rounded-lg text-sm font-semibold ${!preparedBy.trim() ? 'border-red-400 bg-red-50' : 'border-green-400 bg-green-50'}`}
+                >
+                  <option value="" disabled>
+                    {preparedByOptions.length ? 'Hazırlayan seçin' : 'Kayıtlı isim yok — yeni yazın'}
+                  </option>
+                  {preparedByOptions.map((name) => (
+                    <option key={name} value={name}>{name}</option>
+                  ))}
+                  <option value="__custom__">Yeni isim yaz...</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
               </div>
-            )}
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">Müşteri Adı</label>
-            <RichEditor value={customerName} onChange={setCustomerName} placeholder="Firma / Kişi (yazmak için tıklayın)" toolbarOnFocus />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-gray-500 mb-1">Proje Adı</label>
-            <input type="text" value={projectName} onChange={(e) => setProjectName(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="Proje Adı" />
+              {(preparedByCustom || (preparedBy && !preparedByOptions.includes(preparedBy))) && (
+                <input
+                  type="text"
+                  value={preparedBy}
+                  autoFocus
+                  onChange={(e) => {
+                    preparedByAutoFilled.current = true;
+                    setPreparedBy(e.target.value);
+                    rememberPreparedBy(e.target.value);
+                  }}
+                  className={`w-full p-2 border rounded-lg text-sm font-semibold ${!preparedBy.trim() ? 'border-red-400 bg-red-50' : 'border-green-400 bg-green-50'}`}
+                  placeholder="Adınızı yazın"
+                />
+              )}
+              {!preparedBy.trim() && (
+                <div className="flex items-center gap-1 mt-1 text-red-500 text-xs">
+                  <AlertCircle className="w-3 h-3" /> Bu alan zorunludur — listeden seçin veya yeni isim yazın
+                </div>
+              )}
+            </div>
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1">Teklif Tarihi</label>
@@ -1925,6 +1896,17 @@ export default function YeniTeklifPage() {
               <button type="button" onClick={() => applyProposalDate(getTodayDate())} className="px-3 py-2 rounded-lg text-xs font-bold border border-gray-200 text-gray-600 hover:bg-gray-50">Bugün</button>
               <button type="button" onClick={() => applyProposalDate(shiftTrDate(getTodayDate(), 1))} className="px-3 py-2 rounded-lg text-xs font-bold border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100">Yarın</button>
             </div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1">Müşteri Adı</label>
+            <RichEditor value={customerName} onChange={setCustomerName} placeholder="Firma / Kişi (yazmak için tıklayın)" toolbarOnFocus />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1">Proje Adı</label>
+            <input type="text" value={projectName} onChange={(e) => setProjectName(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="Proje Adı" />
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1">Telefon</label>
