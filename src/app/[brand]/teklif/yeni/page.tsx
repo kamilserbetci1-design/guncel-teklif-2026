@@ -17,7 +17,7 @@ import type { ImportPick } from '@/components/ListImportModal';
 import {
   Plus, Trash2, Copy, GripVertical, Eye, EyeOff, Truck, Save, FileDown,
   Printer, ArrowLeft, Search, Users, ChevronDown, RefreshCw, Package, UserCheck, AlertCircle, Boxes, X,
-  List, LayoutGrid, ImagePlus, Type, StickyNote, ChevronUp, Check, FileSpreadsheet, Upload, Globe
+  List, LayoutGrid, ImagePlus, Type, StickyNote, ChevronUp, Check, FileSpreadsheet, Upload, Globe, PenLine
 } from 'lucide-react';
 import { mergeRegisteredWithWebsite, ensureWebsiteNetPrice } from '@/lib/guclu-mutfak-catalog';
 import { cafeMarktProxiedImage } from '@/lib/cafemarkt-catalog';
@@ -130,6 +130,7 @@ export default function YeniTeklifPage() {
   const [customHeaderName, setCustomHeaderName] = useState('');
   const [customHeaderLogo, setCustomHeaderLogo] = useState('');
   const [showIban, setShowIban] = useState(false);
+  const [showStamp, setShowStamp] = useState(false);
   const [selectedIban, setSelectedIban] = useState<number>(0); // 0=hepsi, 1=kurumsal(güçlü reklam), 2=bireysel(buse), 3=kurumsal(güçlü inoks)
   const [installment, setInstallment] = useState<number>(0); // 0=taksit yok, 2-12=taksit sayısı
   const [showInstallment, setShowInstallment] = useState(false);
@@ -241,6 +242,7 @@ export default function YeniTeklifPage() {
       setPaymentType(editingProposal.payment_type || '');
       if (editingProposal.custom_header_name) setCustomHeaderName(editingProposal.custom_header_name);
       if (editingProposal.custom_header_logo) setCustomHeaderLogo(editingProposal.custom_header_logo);
+      setShowStamp(!!editingProposal.show_stamp);
 
       let locked = lockedRatesFromProposal(editingProposal, { usd: 0, eur: 0, gbp: 0 });
       const needsDateRate =
@@ -675,6 +677,7 @@ export default function YeniTeklifPage() {
       if (p.custom_header_name) setCustomHeaderName(p.custom_header_name);
       if (p.custom_header_logo) setCustomHeaderLogo(p.custom_header_logo);
     }
+    setShowStamp(!!p.show_stamp);
   }, [isBlankBrand]);
 
   const selectCustomer = (c: Customer, loadQuote = true) => {
@@ -1112,6 +1115,7 @@ export default function YeniTeklifPage() {
     total: finalTotal,
     custom_header_name: isBlankBrand ? customHeaderName.trim() : undefined,
     custom_header_logo: isBlankBrand ? customHeaderLogo : undefined,
+    show_stamp: showStamp,
     ...fxSnapshot,
   });
 
@@ -1302,6 +1306,7 @@ export default function YeniTeklifPage() {
       total: finalTotal,
       custom_header_name: isBlankBrand ? customHeaderName.trim() : undefined,
       custom_header_logo: isBlankBrand ? customHeaderLogo : undefined,
+      show_stamp: showStamp,
       ...fxSnapshot,
     };
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -1682,6 +1687,15 @@ export default function YeniTeklifPage() {
               ) : customHeaderName.trim() ? (
                 <p className="font-bold text-gray-900 text-sm">{customHeaderName.trim()}</p>
               ) : null}
+              {showStamp && (
+                <img
+                  src="/stamps/inoks-kase.png"
+                  alt="Kaşe"
+                  className="print-keep ml-auto mt-2"
+                  style={{ width: 210, height: 'auto', mixBlendMode: 'multiply' }}
+                  crossOrigin="anonymous"
+                />
+              )}
             </div>
           </div>
 
@@ -2653,6 +2667,25 @@ export default function YeniTeklifPage() {
             <button onClick={() => setSelectedIban(1)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${selectedIban === 1 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>Kurumsal (Güçlü Reklam)</button>
             <button onClick={() => setSelectedIban(2)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${selectedIban === 2 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>Bireysel (Buse Turancı)</button>
             <button onClick={() => setSelectedIban(3)} className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition ${selectedIban === 3 ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'}`}>Kurumsal (Güçlü İnoks)</button>
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-sm font-bold text-gray-700 uppercase">Kaşe</h3>
+          <button
+            type="button"
+            onClick={() => setShowStamp((v) => !v)}
+            className={`h-9 px-3 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 transition ${showStamp ? 'bg-indigo-700 text-white' : 'border border-gray-300 text-gray-600 hover:bg-gray-50'}`}
+          >
+            <PenLine className="w-3.5 h-3.5" />
+            {showStamp ? 'Kaşe Eklendi' : 'Kaşe Ekle'}
+          </button>
+        </div>
+        {showStamp && (
+          <div className="mt-3 flex justify-end">
+            <img src="/stamps/inoks-kase.png" alt="Kaşe önizleme" className="h-28 w-auto" style={{ mixBlendMode: 'multiply' }} />
           </div>
         )}
       </div>
