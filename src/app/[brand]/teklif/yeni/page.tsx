@@ -22,6 +22,18 @@ import { mergeRegisteredWithWebsite, ensureWebsiteNetPrice } from '@/lib/guclu-m
 import { cafeMarktProxiedImage } from '@/lib/cafemarkt-catalog';
 import { rankProducts, foldedIncludes, foldSearchText } from '@/lib/product-search';
 
+const PREPARED_BY_STORAGE = 'teklif-prepared-by';
+
+function rememberPreparedBy(name: string) {
+  const n = name.trim();
+  if (!n) return;
+  try { localStorage.setItem(PREPARED_BY_STORAGE, n); } catch { /* ignore */ }
+}
+
+function lastRememberedPreparedBy() {
+  try { return localStorage.getItem(PREPARED_BY_STORAGE)?.trim() || ''; } catch { return ''; }
+}
+
 export default function YeniTeklifPage() {
   const params = useParams();
   const router = useRouter();
@@ -112,6 +124,8 @@ export default function YeniTeklifPage() {
   const [showVAT, setShowVAT] = useState(true);
   const [globalHidePrices, setGlobalHidePrices] = useState(false);
   const [preparedBy, setPreparedBy] = useState('');
+  const [preparedByCustom, setPreparedByCustom] = useState(false);
+  const preparedByAutoFilled = useRef(false);
   const [customHeaderName, setCustomHeaderName] = useState('');
   const [customHeaderLogo, setCustomHeaderLogo] = useState('');
   const [showIban, setShowIban] = useState(false);
@@ -273,6 +287,44 @@ export default function YeniTeklifPage() {
       localStorage.setItem('markasiz-header', JSON.stringify({ name: customHeaderName, logo: customHeaderLogo }));
     } catch { /* ignore */ }
   }, [brandId, customHeaderName, customHeaderLogo]);
+
+  const preparedByOptions = (() => {
+    const seen = new Set<string>();
+    const names: string[] = [];
+    const sorted = [...proposals].sort((a, b) => {
+      const da = a.updated_at || a.created_at || a.proposal_date || '';
+      const db = b.updated_at || b.created_at || b.proposal_date || '';
+      return db.localeCompare(da);
+    });
+    const saved = lastRememberedPreparedBy();
+    if (saved) {
+      seen.add(saved.toLocaleLowerCase('tr-TR'));
+      names.push(saved);
+    }
+    for (const p of sorted) {
+      const n = (p.prepared_by || '').trim();
+      if (!n) continue;
+      const key = n.toLocaleLowerCase('tr-TR');
+      if (seen.has(key)) continue;
+      seen.add(key);
+      names.push(n);
+    }
+    return names;
+  })();
+
+  useEffect(() => {
+    if (editId || preparedByAutoFilled.current) return;
+    const pick = lastRememberedPreparedBy()
+      || proposals.map((p) => (p.prepared_by || '').trim()).find(Boolean)
+      || '';
+    if (!pick) {
+      if (proposals.length === 0) setPreparedByCustom(true);
+      return;
+    }
+    preparedByAutoFilled.current = true;
+    setPreparedBy(pick);
+    setPreparedByCustom(false);
+  }, [editId, proposals]);
 
   // Drag state
   const dragItem = useRef<number | null>(null);
@@ -988,6 +1040,7 @@ export default function YeniTeklifPage() {
 
   const handleSave = async () => {
     if (!isFormValid) return alert('Teklifi Hazırlayan alanı zorunludur!');
+    rememberPreparedBy(preparedBy);
     if (saving) return;
     setSaving(true);
     try {
@@ -1096,6 +1149,7 @@ export default function YeniTeklifPage() {
   const handleDownloadPDF = async () => {
     if (!printRef.current) return;
     if (!isFormValid) return alert('PDF oluşturmak için "Teklifi Hazırlayan" alanı zorunludur!');
+    rememberPreparedBy(preparedBy);
     try {
       const html2pdf = (await import('html2pdf.js')).default;
       const opt = {
@@ -1172,6 +1226,7 @@ export default function YeniTeklifPage() {
 
   const handleDownloadExcel = async () => {
     if (!isFormValid) return alert('Excel için "Teklifi Hazırlayan" alanı zorunludur!');
+    rememberPreparedBy(preparedBy);
     if (excelBusy) return;
     setExcelBusy(true);
     try {
@@ -1740,17 +1795,51 @@ export default function YeniTeklifPage() {
           <label className="block text-xs font-bold text-gray-500 mb-1 flex items-center gap-1">
             <UserCheck className="w-3.5 h-3.5" /> Teklifi Hazırlayan *
           </label>
-          <div className="relative">
-            <input
-              type="text"
-              value={preparedBy}
-              onChange={(e) => setPreparedBy(e.target.value)}
-              className={`w-full md:w-80 p-2 border rounded-lg text-sm font-semibold ${!preparedBy.trim() ? 'border-red-400 bg-red-50' : 'border-green-400 bg-green-50'}`}
-              placeholder="Adınızı yazın (zorunlu)"
-            />
+          <div className="relative space-y-2">
+            <div className="relative w-full md:w-80">
+              <select
+                value={preparedByCustom || (preparedBy && !preparedByOptions.includes(preparedBy)) ? '__custom__' : preparedBy}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  preparedByAutoFilled.current = true;
+                  if (v === '__custom__') {
+                    setPreparedByCustom(true);
+                    setPreparedBy('');
+                    return;
+                  }
+                  setPreparedByCustom(false);
+                  setPreparedBy(v);
+                  rememberPreparedBy(v);
+                }}
+                className={`w-full appearance-none p-2 pr-8 border rounded-lg text-sm font-semibold ${!preparedBy.trim() ? 'border-red-400 bg-red-50' : 'border-green-400 bg-green-50'}`}
+              >
+                <option value="" disabled>
+                  {preparedByOptions.length ? 'Hazırlayan seçin' : 'Kayıtlı isim yok — yeni yazın'}
+                </option>
+                {preparedByOptions.map((name) => (
+                  <option key={name} value={name}>{name}</option>
+                ))}
+                <option value="__custom__">Yeni isim yaz...</option>
+              </select>
+              <ChevronDown className="pointer-events-none absolute right-2 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
+            </div>
+            {(preparedByCustom || (preparedBy && !preparedByOptions.includes(preparedBy))) && (
+              <input
+                type="text"
+                value={preparedBy}
+                autoFocus
+                onChange={(e) => {
+                  preparedByAutoFilled.current = true;
+                  setPreparedBy(e.target.value);
+                  rememberPreparedBy(e.target.value);
+                }}
+                className={`w-full md:w-80 p-2 border rounded-lg text-sm font-semibold ${!preparedBy.trim() ? 'border-red-400 bg-red-50' : 'border-green-400 bg-green-50'}`}
+                placeholder="Adınızı yazın"
+              />
+            )}
             {!preparedBy.trim() && (
               <div className="flex items-center gap-1 mt-1 text-red-500 text-xs">
-                <AlertCircle className="w-3 h-3" /> Bu alan zorunludur — doldurmadan Kaydet ve PDF oluşturulamaz
+                <AlertCircle className="w-3 h-3" /> Bu alan zorunludur — listeden seçin veya yeni isim yazın
               </div>
             )}
           </div>
