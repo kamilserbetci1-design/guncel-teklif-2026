@@ -4,7 +4,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useAppStore } from '@/lib/store';
 import { getBrand } from '@/lib/brands';
-import { formatCurrency, getCurrencySymbol, numberToText, generateProposalNo, getTodayDate, getValidityDate, getValidityText, fetchExchangeRates, toTry, rateToTry, normalizeCurrency, lockedRatesFromProposal, fetchQuoteRates } from '@/lib/helpers';
+import { formatCurrency, getCurrencySymbol, numberToText, generateProposalNo, getTodayDate, getValidityDate, getValidityText, fetchExchangeRates, toTry, rateToTry, normalizeCurrency, lockedRatesFromProposal, fetchQuoteRates, trDateToIso, isoToTrDate, shiftTrDate } from '@/lib/helpers';
 import type { ProposalItem, Proposal, PackageTemplate, PackageItem, PaymentType, Customer } from '@/lib/types';
 import { nextRevisionNo, cloneProposalItems, lastProposalForCustomer, proposalRevision } from '@/lib/proposal-revisions';
 import { PAYMENT_TYPES } from '@/lib/types';
@@ -16,7 +16,7 @@ import ListImportModal from '@/components/ListImportModal';
 import type { ImportPick } from '@/components/ListImportModal';
 import {
   Plus, Trash2, Copy, GripVertical, Eye, EyeOff, Truck, Save, FileDown,
-  Printer, ArrowLeft, Search, Users, ChevronDown, RefreshCw, Package, UserCheck, AlertCircle, Boxes, X,
+  Printer, ArrowLeft, Search, Users, ChevronDown, RefreshCw, Package, UserCheck, AlertCircle, Boxes, X, Calendar,
   List, LayoutGrid, ImagePlus, Type, StickyNote, ChevronUp, Check, FileSpreadsheet, Upload, Globe
 } from 'lucide-react';
 import { mergeRegisteredWithWebsite, ensureWebsiteNetPrice } from '@/lib/guclu-mutfak-catalog';
@@ -1145,7 +1145,7 @@ export default function YeniTeklifPage() {
     setSaving(true);
     try {
       const no = nextRevisionNo(proposalNo, proposals);
-      await addProposal({ ...buildSavedProposal(`${Date.now()}`, no, 'draft'), proposal_date: getTodayDate() });
+      await addProposal({ ...buildSavedProposal(`${Date.now()}`, no, 'draft'), proposal_date: proposalDate });
       await saveCustomerFromProposal();
       await new Promise((r) => setTimeout(r, 300));
       router.push(`/${brandId}/teklifler`);
@@ -1157,6 +1157,34 @@ export default function YeniTeklifPage() {
   };
 
   const handlePrint = () => window.print();
+
+  const applyProposalDate = async (next: string) => {
+    setProposalDate(next);
+    if (editId) return;
+    try {
+      const hist = await fetchQuoteRates(next);
+      if (hist.eur > 0) setEurRate(hist.eur);
+      if (hist.usd > 0) setUsdRate(hist.usd);
+      if (hist.gbp > 0) setGbpRate(hist.gbp);
+    } catch { /* tarihi kur yoksa mevcut kur kalır */ }
+  };
+
+  const datePicker = (
+    <div className="flex flex-wrap items-center gap-2">
+      <label className="inline-flex items-center gap-2 text-xs font-bold text-gray-600">
+        <Calendar className="w-3.5 h-3.5" />
+        Teklif Tarihi
+        <input
+          type="date"
+          value={trDateToIso(proposalDate)}
+          onChange={(e) => applyProposalDate(isoToTrDate(e.target.value))}
+          className="h-9 px-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-800 bg-white"
+        />
+      </label>
+      <button type="button" onClick={() => applyProposalDate(getTodayDate())} className="h-9 px-3 rounded-lg text-xs font-bold border border-gray-200 text-gray-600 hover:bg-gray-50">Bugün</button>
+      <button type="button" onClick={() => applyProposalDate(shiftTrDate(getTodayDate(), 1))} className="h-9 px-3 rounded-lg text-xs font-bold border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100">Yarın</button>
+    </div>
+  );
 
   // Tekliften kargo etiketi oluştur: alıcı bilgileri + ürün adları (maddeli) kargo sayfasına taşınır
   const createLabel = () => {
@@ -1305,28 +1333,32 @@ export default function YeniTeklifPage() {
   if (isPrintMode) {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="no-print flex items-center gap-2 mb-4 p-3 bg-white rounded-xl border shadow-sm flex-wrap [&>button]:flex-1 sm:[&>button]:flex-none [&>button]:justify-center">
-          <button onClick={() => setIsPrintMode(false)} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 text-gray-600 hover:bg-gray-100 transition"><ArrowLeft className="w-4 h-4" /> Geri</button>
-          <button
-            onClick={() => setViewMode(viewMode === 'liste' ? 'katalog' : 'liste')}
-            className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition ${viewMode === 'katalog' ? 'bg-green-600 text-white' : 'bg-gray-700 text-white'}`}
-          >
-            {viewMode === 'liste' ? <><List className="w-4 h-4" /> Liste</> : <><LayoutGrid className="w-4 h-4" /> Katalog</>}
-          </button>
-          <select value={proposalTitle} onChange={(e) => setProposalTitle(e.target.value)} className="h-9 px-3 rounded-lg text-sm font-bold border border-gray-300 bg-white text-gray-700">
-            <option value="FİYAT TEKLİFİ">Fiyat Teklifi</option>
-            <option value="PROFORMA FATURA">Proforma Fatura</option>
-          </select>
-          <div className="flex-1" />
-          <button onClick={handlePrint} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 bg-gray-800 text-white hover:bg-gray-900 transition"><Printer className="w-4 h-4" /> Yazdır</button>
-          <button onClick={handleDownloadPDF} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition ${isFormValid ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><FileDown className="w-4 h-4" /> PDF</button>
-          <button onClick={handleDownloadExcel} disabled={!isFormValid || excelBusy} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition ${isFormValid && !excelBusy ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`} title="Müşteriye gönderilebilir, düzenlenebilir Excel"><FileSpreadsheet className="w-4 h-4" /> {excelBusy ? 'Hazırlanıyor…' : 'Excel'}</button>
-          <button onClick={handleDownloadJSON} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 bg-orange-500 text-white hover:bg-orange-600 transition"><FileDown className="w-4 h-4" /> JSON</button>
-          {editId && (
-            <button onClick={handleRevise} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition ${isFormValid ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Copy className="w-4 h-4" /> Revize Et</button>
-          )}
-          <button onClick={handleSave} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition ${isFormValid ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Save className="w-4 h-4" /> Kaydet</button>
-          {!isFormValid && <span className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Hazırlayan alanını doldurun</span>}
+        <div className="no-print mb-4 p-3 bg-white rounded-xl border shadow-sm space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={() => setIsPrintMode(false)} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 text-gray-600 hover:bg-gray-100 transition shrink-0"><ArrowLeft className="w-4 h-4" /> Geri</button>
+            <button
+              onClick={() => setViewMode(viewMode === 'liste' ? 'katalog' : 'liste')}
+              className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition shrink-0 ${viewMode === 'katalog' ? 'bg-green-600 text-white' : 'bg-gray-700 text-white'}`}
+            >
+              {viewMode === 'liste' ? <><List className="w-4 h-4" /> Liste</> : <><LayoutGrid className="w-4 h-4" /> Katalog</>}
+            </button>
+            <select value={proposalTitle} onChange={(e) => setProposalTitle(e.target.value)} className="h-9 px-3 rounded-lg text-sm font-bold border border-gray-300 bg-white text-gray-700 shrink-0">
+              <option value="FİYAT TEKLİFİ">Fiyat Teklifi</option>
+              <option value="PROFORMA FATURA">Proforma Fatura</option>
+            </select>
+            {datePicker}
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button onClick={handlePrint} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 bg-gray-800 text-white hover:bg-gray-900 transition shrink-0"><Printer className="w-4 h-4" /> Yazdır</button>
+            <button onClick={handleDownloadPDF} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition shrink-0 ${isFormValid ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><FileDown className="w-4 h-4" /> PDF</button>
+            <button onClick={handleDownloadExcel} disabled={!isFormValid || excelBusy} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition shrink-0 ${isFormValid && !excelBusy ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`} title="Müşteriye gönderilebilir, düzenlenebilir Excel"><FileSpreadsheet className="w-4 h-4" /> {excelBusy ? 'Hazırlanıyor…' : 'Excel'}</button>
+            <button onClick={handleDownloadJSON} className="h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 bg-orange-500 text-white hover:bg-orange-600 transition shrink-0"><FileDown className="w-4 h-4" /> JSON</button>
+            {editId && (
+              <button onClick={handleRevise} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition shrink-0 ${isFormValid ? 'bg-amber-600 text-white hover:bg-amber-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Copy className="w-4 h-4" /> Revize Et</button>
+            )}
+            <button onClick={handleSave} disabled={!isFormValid} className={`h-9 px-3 rounded-lg text-sm font-bold flex items-center gap-1.5 transition shrink-0 ${isFormValid ? 'bg-green-600 text-white hover:bg-green-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><Save className="w-4 h-4" /> Kaydet</button>
+            {!isFormValid && <span className="text-xs text-red-500 flex items-center gap-1"><AlertCircle className="w-3 h-3" /> Hazırlayan alanını doldurun</span>}
+          </div>
         </div>
 
         <div className="overflow-x-auto -mx-1 sm:mx-0">
@@ -1880,6 +1912,19 @@ export default function YeniTeklifPage() {
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1">Proje Adı</label>
             <input type="text" value={projectName} onChange={(e) => setProjectName(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="Proje Adı" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-500 mb-1">Teklif Tarihi</label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="date"
+                value={trDateToIso(proposalDate)}
+                onChange={(e) => applyProposalDate(isoToTrDate(e.target.value))}
+                className="flex-1 min-w-[10rem] p-2 border border-gray-300 rounded-lg text-sm font-semibold"
+              />
+              <button type="button" onClick={() => applyProposalDate(getTodayDate())} className="px-3 py-2 rounded-lg text-xs font-bold border border-gray-200 text-gray-600 hover:bg-gray-50">Bugün</button>
+              <button type="button" onClick={() => applyProposalDate(shiftTrDate(getTodayDate(), 1))} className="px-3 py-2 rounded-lg text-xs font-bold border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100">Yarın</button>
+            </div>
           </div>
           <div>
             <label className="block text-xs font-bold text-gray-500 mb-1">Telefon</label>

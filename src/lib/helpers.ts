@@ -146,7 +146,29 @@ export const getValidityText = (): string => {
 };
 
 export const getTodayDate = (): string => {
-  return new Date().toLocaleDateString('tr-TR');
+  const d = new Date();
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+};
+
+export const trDateToIso = (value: string) => {
+  const m = String(value || '').trim().match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+export const isoToTrDate = (value: string) => {
+  const m = String(value || '').trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!m) return getTodayDate();
+  return `${m[3]}.${m[2]}.${m[1]}`;
+};
+
+export const shiftTrDate = (value: string, days: number) => {
+  const iso = trDateToIso(value);
+  const d = new Date(`${iso}T12:00:00`);
+  if (Number.isNaN(d.getTime())) return getTodayDate();
+  d.setDate(d.getDate() + days);
+  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
 };
 
 export const fetchExchangeRates = async (): Promise<{ usd: number; eur: number; gbp: number }> => {
