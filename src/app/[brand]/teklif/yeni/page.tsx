@@ -1318,6 +1318,48 @@ export default function YeniTeklifPage() {
     URL.revokeObjectURL(url);
   };
 
+  const previewTotalsInner = !globalHidePrices ? (
+              <div
+                className="space-y-2 text-sm"
+                style={isMutproLook ? { backgroundColor: mutCream, padding: '16px 20px', borderRadius: '6px', borderTop: `1px solid ${mutOrange}`, overflow: 'hidden' } : undefined}
+              >
+                <div className="flex justify-between"><span className="text-gray-600">Ara Toplam (KDV Hariç):</span><span className="font-semibold" style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(subTotal), sym)}</span></div>
+                {discountAmount > 0 && <div className="flex justify-between text-red-600"><span>İndirim{discountMode === 'percent' ? ` (%${discountValue})` : ''}:</span><span>-{formatCurrency(convertCurrency(discountAmount), sym)}</span></div>}
+                {discountAmount > 0 && <div className="flex justify-between border-t pt-1"><span className="text-gray-600">İndirimli Toplam:</span><span className="font-semibold">{formatCurrency(convertCurrency(discountedSubTotal), sym)}</span></div>}
+                {showVAT && <div className="flex justify-between"><span className="text-gray-600">KDV (%20):</span><span style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(kdvTotal), sym)}</span></div>}
+                {shippingCost > 0 && <div className="flex justify-between"><span className="text-gray-600">Kargo / Taşıma Bedeli:</span><span style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(shippingCost), sym)}</span></div>}
+                {installment > 0 && <div className="flex justify-between text-orange-600"><span>Taksit Farkı ({installment} taksit, %{installment*3}):</span><span>+{formatCurrency(convertCurrency(installmentExtra), sym)}</span></div>}
+                <div className={`flex justify-between text-lg font-extrabold pt-2 mt-2 ${isMutproLook ? '' : 'border-t-2 border-gray-800'}`} style={isMutproLook ? { color: mutNavy, borderTop: `1px solid ${mutNavy}` } : undefined}><span>GENEL TOPLAM:</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(convertCurrency(finalTotal), sym)}</span></div>
+                <div className="text-right text-xs text-gray-500 italic">{numberToText(convertCurrency(finalTotal), currency)}</div>
+                {totalEquivalents.length > 0 && (
+                  <div className="flex flex-wrap justify-end items-center gap-x-2 text-[11px] text-gray-500 pt-1.5">
+                    {totalEquivalents.map((c, i) => (
+                      <span key={c.code} className="inline-flex items-center gap-2">
+                        {i > 0 && <span className="text-gray-300">|</span>}
+                        <span>{formatCurrency(c.amount, getCurrencySymbol(c.code))}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {paidAmount > 0 && (
+                  <>
+                    <div className="flex justify-between text-emerald-700 pt-2"><span>Ödenen{paymentType ? ` (${PAYMENT_TYPES[paymentType]})` : ''} ({currency}):</span><span>-{formatCurrency(convertCurrency(paidAmount), sym)}</span></div>
+                    <div className={`flex justify-between font-bold ${remainingAmount > 0.009 ? 'text-orange-600' : 'text-emerald-700'}`}><span>Kalan:</span><span>{formatCurrency(convertCurrency(Math.max(0, remainingAmount)), sym)}</span></div>
+                  </>
+                )}
+              </div>
+  ) : null;
+
+  const previewStamp = showStamp ? (
+                <img
+                  src="/stamps/inoks-kase.png"
+                  alt="Kaşe"
+                  className="print-keep ml-auto"
+                  style={{ width: 210, height: 'auto', mixBlendMode: 'multiply' }}
+                  crossOrigin="anonymous"
+                />
+  ) : null;
+
   if (isPrintMode) {
     return (
       <div className="max-w-4xl mx-auto">
@@ -1600,38 +1642,9 @@ export default function YeniTeklifPage() {
             </div>
           )}
 
-          {/* Totals — KDV hariç ara toplam + KDV satırı + Kargo + Genel Toplam */}
           {!globalHidePrices && (
             <div className="print-keep mb-8" style={{ display: 'block', width: '24rem', maxWidth: '100%', marginLeft: 'auto', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-              <div
-                className="space-y-2 text-sm"
-                style={isMutproLook ? { backgroundColor: mutCream, padding: '16px 20px', borderRadius: '6px', borderTop: `1px solid ${mutOrange}`, overflow: 'hidden' } : undefined}
-              >
-                <div className="flex justify-between"><span className="text-gray-600">Ara Toplam (KDV Hariç):</span><span className="font-semibold" style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(subTotal), sym)}</span></div>
-                {discountAmount > 0 && <div className="flex justify-between text-red-600"><span>İndirim{discountMode === 'percent' ? ` (%${discountValue})` : ''}:</span><span>-{formatCurrency(convertCurrency(discountAmount), sym)}</span></div>}
-                {discountAmount > 0 && <div className="flex justify-between border-t pt-1"><span className="text-gray-600">İndirimli Toplam:</span><span className="font-semibold">{formatCurrency(convertCurrency(discountedSubTotal), sym)}</span></div>}
-                {showVAT && <div className="flex justify-between"><span className="text-gray-600">KDV (%20):</span><span style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(kdvTotal), sym)}</span></div>}
-                {shippingCost > 0 && <div className="flex justify-between"><span className="text-gray-600">Kargo / Taşıma Bedeli:</span><span style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(shippingCost), sym)}</span></div>}
-                {installment > 0 && <div className="flex justify-between text-orange-600"><span>Taksit Farkı ({installment} taksit, %{installment*3}):</span><span>+{formatCurrency(convertCurrency(installmentExtra), sym)}</span></div>}
-                <div className={`flex justify-between text-lg font-extrabold pt-2 mt-2 ${isMutproLook ? '' : 'border-t-2 border-gray-800'}`} style={isMutproLook ? { color: mutNavy, borderTop: `1px solid ${mutNavy}` } : undefined}><span>GENEL TOPLAM:</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(convertCurrency(finalTotal), sym)}</span></div>
-                <div className="text-right text-xs text-gray-500 italic">{numberToText(convertCurrency(finalTotal), currency)}</div>
-                {totalEquivalents.length > 0 && (
-                  <div className="flex flex-wrap justify-end items-center gap-x-2 text-[11px] text-gray-500 pt-1.5">
-                    {totalEquivalents.map((c, i) => (
-                      <span key={c.code} className="inline-flex items-center gap-2">
-                        {i > 0 && <span className="text-gray-300">|</span>}
-                        <span>{formatCurrency(c.amount, getCurrencySymbol(c.code))}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {paidAmount > 0 && (
-                  <>
-                    <div className="flex justify-between text-emerald-700 pt-2"><span>Ödenen{paymentType ? ` (${PAYMENT_TYPES[paymentType]})` : ''} ({currency}):</span><span>-{formatCurrency(convertCurrency(paidAmount), sym)}</span></div>
-                    <div className={`flex justify-between font-bold ${remainingAmount > 0.009 ? 'text-orange-600' : 'text-emerald-700'}`}><span>Kalan:</span><span>{formatCurrency(convertCurrency(Math.max(0, remainingAmount)), sym)}</span></div>
-                  </>
-                )}
-              </div>
+              {previewTotalsInner}
             </div>
           )}
 
@@ -1665,8 +1678,23 @@ export default function YeniTeklifPage() {
             </div>
           )}
 
-          {/* Terms + Footer */}
-          <div className="grid grid-cols-2 gap-6 text-[10px] text-gray-500 border-t pt-4 mt-6 print-keep" style={{ pageBreakInside: 'avoid' }}>
+          {brand.brandLogos.length > 0 && (
+            <div className="mt-6 pt-4 border-t border-gray-200 print-keep" style={{ pageBreakInside: 'avoid' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '20px 16px', alignItems: 'center', justifyItems: 'center' }}>
+                {brand.brandLogos.map((logo, i) => (
+                  <img key={i} src={logo} style={{ height: '61px', width: 'auto', objectFit: 'contain', opacity: 0.7 }} alt="" crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {showStamp && (
+            <div className="print-keep mt-6 mb-1 flex justify-end" style={{ pageBreakInside: 'avoid' }}>
+              {previewStamp}
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-6 text-[10px] text-gray-500 border-t pt-4 mt-2 print-keep" style={{ pageBreakInside: 'avoid' }}>
             <div>
               <h4 className="font-bold text-gray-900 uppercase mb-1 text-xs">Şartlar ve Koşullar</h4>
               <div className="leading-relaxed rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(conditions) }} />
@@ -1687,28 +1715,8 @@ export default function YeniTeklifPage() {
               ) : customHeaderName.trim() ? (
                 <p className="font-bold text-gray-900 text-sm">{customHeaderName.trim()}</p>
               ) : null}
-              {showStamp && (
-                <img
-                  src="/stamps/inoks-kase.png"
-                  alt="Kaşe"
-                  className="print-keep ml-auto mt-2"
-                  style={{ width: 210, height: 'auto', mixBlendMode: 'multiply' }}
-                  crossOrigin="anonymous"
-                />
-              )}
             </div>
           </div>
-
-          {/* Brand Logos */}
-          {brand.brandLogos.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-gray-200 print-keep" style={{ pageBreakInside: 'avoid' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '20px 16px', alignItems: 'center', justifyItems: 'center' }}>
-                {brand.brandLogos.map((logo, i) => (
-                  <img key={i} src={logo} style={{ height: '61px', width: 'auto', objectFit: 'contain', opacity: 0.7 }} alt="" crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
         </div>
       </div>
