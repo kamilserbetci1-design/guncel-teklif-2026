@@ -24,6 +24,12 @@
   }
 }
 
+.print-keep,
+.print-end {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
 @media print {
   .no-print {
     display: none !important;
@@ -35,14 +41,15 @@
     box-shadow: none !important;
     border-radius: 0 !important;
   }
-  .print-keep {
+  .print-keep,
+  .print-end {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
   thead {
     display: table-header-group;
   }
-  tr, img {
+  tr {
     break-inside: avoid;
     page-break-inside: avoid;
   }

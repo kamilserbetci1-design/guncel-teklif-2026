@@ -1212,15 +1212,35 @@ export default function YeniTeklifPage() {
     rememberPreparedBy(preparedBy);
     try {
       const html2pdf = (await import('html2pdf.js')).default;
+      const y = window.scrollY;
+      window.scrollTo(0, 0);
       const opt = {
-        margin: [5, 5, 10, 5],
+        margin: [8, 8, 10, 8],
         filename: `${proposalNo}_${projectName || 'Teklif'}.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, logging: false },
+        image: { type: 'jpeg', quality: 0.96 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          scrollX: 0,
+          scrollY: 0,
+          windowWidth: printRef.current.scrollWidth,
+          onclone: (doc: Document) => {
+            const el = doc.querySelector('.page-container') as HTMLElement | null;
+            if (!el) return;
+            el.style.boxShadow = 'none';
+            el.style.borderRadius = '0';
+            el.style.margin = '0';
+          },
+        },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-        pagebreak: { mode: ['css', 'legacy'], avoid: ['.print-keep', 'tr', 'img'] },
+        pagebreak: { mode: ['css'], avoid: ['.print-keep', '.print-end'] },
       };
-      await html2pdf().set(opt).from(printRef.current).save();
+      try {
+        await html2pdf().set(opt).from(printRef.current).save();
+      } finally {
+        window.scrollTo(0, y);
+      }
 
       if (editId) {
         const current = buildSavedProposal(editId, proposalNo, 'sent');
@@ -1321,7 +1341,7 @@ export default function YeniTeklifPage() {
   const previewTotalsInner = !globalHidePrices ? (
               <div
                 className="space-y-2 text-sm"
-                style={isMutproLook ? { backgroundColor: mutCream, padding: '16px 20px', borderRadius: '6px', borderTop: `1px solid ${mutOrange}`, overflow: 'hidden' } : undefined}
+                style={isMutproLook ? { backgroundColor: mutCream, padding: '16px 20px', borderRadius: '6px', borderTop: `1px solid ${mutOrange}` } : undefined}
               >
                 <div className="flex justify-between"><span className="text-gray-600">Ara Toplam (KDV Hariç):</span><span className="font-semibold" style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(subTotal), sym)}</span></div>
                 {discountAmount > 0 && <div className="flex justify-between text-red-600"><span>İndirim{discountMode === 'percent' ? ` (%${discountValue})` : ''}:</span><span>-{formatCurrency(convertCurrency(discountAmount), sym)}</span></div>}
@@ -1475,7 +1495,7 @@ export default function YeniTeklifPage() {
 
           {/* Customer + Project */}
           {isMutproLook ? (
-            <div className="mb-8 print-keep" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', width: '100%', boxSizing: 'border-box', pageBreakAfter: 'avoid' }}>
+            <div className="mb-8" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', width: '100%', boxSizing: 'border-box' }}>
               <div style={{ padding: '16px 20px', backgroundColor: mutCream, borderRadius: '6px', borderLeft: `3px solid ${mutOrange}`, boxSizing: 'border-box' }}>
                 <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.14em', color: mutOrange, textTransform: 'uppercase', marginBottom: '8px' }}>Müşteri</div>
                 {customerName && stripHtml(customerName) !== '-' ? (
@@ -1510,7 +1530,7 @@ export default function YeniTeklifPage() {
 
           {/* Items — Liste */}
           {items.length > 0 && viewMode === 'liste' && (
-            <table className="w-full text-sm mb-8" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
+            <table className="w-full text-sm" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
               <colgroup>
                 <col style={{ width: isMutproLook ? '52px' : '40px' }} />
                 {!isCompactMode && <col style={{ width: `${(isMutproLook ? listThumb : 80) + 24}px` }} />}
@@ -1575,7 +1595,7 @@ export default function YeniTeklifPage() {
 
           {/* Katalog — MutPro: ürün önde, numara görselde */}
           {items.length > 0 && viewMode === 'katalog' && isMutproLook && (
-            <div className="mb-8" style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '10px' }}>
               {(() => { let pIdx = 0; return items.map((item) => {
                 if (item.type === 'section') {
                   return (
@@ -1610,7 +1630,7 @@ export default function YeniTeklifPage() {
 
           {/* Katalog Görünüm — diğer markalar */}
           {items.length > 0 && viewMode === 'katalog' && !isMutproLook && (
-            <div className="space-y-4 mb-8">
+            <div className="space-y-4">
               {(() => { let pIdx = 0; return items.map((item) => {
                 if (item.type === 'section') {
                   return (
@@ -1642,15 +1662,15 @@ export default function YeniTeklifPage() {
             </div>
           )}
 
+          <div className="print-end" style={{ marginTop: 20, paddingTop: 4 }}>
           {!globalHidePrices && (
-            <div className="print-keep mb-8" style={{ display: 'block', width: '24rem', maxWidth: '100%', marginLeft: 'auto', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+            <div style={{ display: 'block', width: '24rem', maxWidth: '100%', marginLeft: 'auto' }}>
               {previewTotalsInner}
             </div>
           )}
 
-          {/* IBAN / Ödeme Bilgileri */}
           {showIban && (
-            <div className="mb-6 border border-gray-200 rounded-lg p-4 print-keep" style={{ pageBreakInside: 'avoid' }}>
+            <div className="mt-5 border border-gray-200 rounded-lg p-4">
               <h4 className="font-bold text-gray-900 uppercase mb-3 text-xs">Ödeme Bilgileri</h4>
               <div className="space-y-3 text-xs">
                 {(selectedIban === 0 || selectedIban === 1) && (
@@ -1679,7 +1699,7 @@ export default function YeniTeklifPage() {
           )}
 
           {brand.brandLogos.length > 0 && (
-            <div className="mt-6 pt-4 border-t border-gray-200 print-keep" style={{ pageBreakInside: 'avoid' }}>
+            <div className="pt-5 mt-5" style={{ borderTop: '1px solid #e5e7eb' }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '20px 16px', alignItems: 'center', justifyItems: 'center' }}>
                 {brand.brandLogos.map((logo, i) => (
                   <img key={i} src={logo} style={{ height: '61px', width: 'auto', objectFit: 'contain', opacity: 0.7 }} alt="" crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
@@ -1689,12 +1709,12 @@ export default function YeniTeklifPage() {
           )}
 
           {showStamp && (
-            <div className="print-keep mt-6 mb-1 flex justify-end" style={{ pageBreakInside: 'avoid' }}>
+            <div className="mt-5 flex justify-end">
               {previewStamp}
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-6 text-[10px] text-gray-500 border-t pt-4 mt-2 print-keep" style={{ pageBreakInside: 'avoid' }}>
+          <div className="grid grid-cols-2 gap-6 text-[10px] text-gray-500 pt-4 mt-4" style={{ borderTop: '1px solid #e5e7eb' }}>
             <div>
               <h4 className="font-bold text-gray-900 uppercase mb-1 text-xs">Şartlar ve Koşullar</h4>
               <div className="leading-relaxed rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(conditions) }} />
@@ -1716,6 +1736,7 @@ export default function YeniTeklifPage() {
                 <p className="font-bold text-gray-900 text-sm">{customHeaderName.trim()}</p>
               ) : null}
             </div>
+          </div>
           </div>
         </div>
         </div>
