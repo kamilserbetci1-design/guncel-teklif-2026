@@ -8,7 +8,7 @@ import {
   storeTotal, warehouseTotal, grandTotal, numberFmt,
   CURRENCIES, CURRENCY_SYMBOLS, SALE_MARKUP_PRESETS, moneyFmt, costToTRY, netFromList, norm,
 } from '@/lib/stok-types';
-import { scoreSearchText, rankProducts } from '@/lib/product-search';
+import { rankProducts } from '@/lib/product-search';
 import {
   Package, Store, Warehouse, Plus, Search, Pencil, Trash2, X, FileDown, Upload,
   ArrowRightLeft, ArrowDownToLine, ArrowUpFromLine, Loader2, ShieldCheck, Boxes,
@@ -133,7 +133,7 @@ export default function StokPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim();
-    return products.filter((p) => {
+    const base = products.filter((p) => {
       if (locFilter === 'store' && storeTotal(p) === 0) return false;
       if (locFilter === 'warehouse' && warehouseTotal(p) === 0) return false;
       if (fBrand && norm(p.brand) !== norm(fBrand)) return false;
@@ -145,9 +145,10 @@ export default function StokPage() {
       const hasPrice = p.cost > 0 || p.sale_price > 0;
       if (fPrice === 'priced' && !hasPrice) return false;
       if (fPrice === 'unpriced' && hasPrice) return false;
-      if (q && scoreSearchText(`${p.code} ${p.name} ${p.brand} ${p.category} ${p.color}`, q) <= 0) return false;
       return true;
     });
+    if (!q) return base;
+    return rankProducts(base.map((p) => ({ ...p, sku: p.code })), q, base.length);
   }, [products, search, fBrand, fCat, fPack, fPrice, locFilter]);
 
   const totals = useMemo(() => {

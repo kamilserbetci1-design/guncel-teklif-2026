@@ -1,5 +1,5 @@
 import type { Product } from '@/lib/types';
-import { foldSearchText, scoreSearchText, searchTokens } from '@/lib/product-search';
+import { foldSearchText, scoreSearchText, scoreProduct, searchTokens } from '@/lib/product-search';
 
 const SITEMAP_URL = 'https://guclumutfak.com/products.xml';
 const UA =
@@ -227,11 +227,7 @@ export async function searchWebsiteProducts(query: string, offset = 0, limit = 1
   const products = rows
     .filter((p): p is Product => Boolean(p))
     .map(ensureWebsiteNetPrice)
-    .sort(
-      (a, b) =>
-        scoreSearchText(`${b.name} ${b.category} ${b.manufacturer} ${b.sku}`, query) -
-        scoreSearchText(`${a.name} ${a.category} ${a.manufacturer} ${a.sku}`, query)
-    );
+    .sort((a, b) => scoreProduct(b, query) - scoreProduct(a, query));
 
   const data: SearchPage = {
     products,

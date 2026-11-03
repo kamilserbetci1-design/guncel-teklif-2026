@@ -9,7 +9,7 @@ import type { Product } from '@/lib/types';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { ensureWebsiteNetPrice } from '@/lib/guclu-mutfak-catalog';
 import { cafeMarktProxiedImage } from '@/lib/cafemarkt-catalog';
-import { scoreSearchText, productSearchHay } from '@/lib/product-search';
+import { rankProducts } from '@/lib/product-search';
 
 const ITEMS_PER_PAGE = 50;
 
@@ -51,10 +51,7 @@ export default function UrunlerPage() {
 
   // Filter products
   const filteredProducts = useMemo(() => {
-    return allBrandProducts.filter((p) => {
-      if (search) {
-        if (scoreSearchText(productSearchHay(p), search) <= 0) return false;
-      }
+    const base = allBrandProducts.filter((p) => {
       if (selectedCategory) {
         const topCat = (p.category || '').split('>')[0].trim();
         if (topCat !== selectedCategory) return false;
@@ -64,6 +61,8 @@ export default function UrunlerPage() {
       }
       return true;
     });
+    if (!search.trim()) return base;
+    return rankProducts(base, search, base.length);
   }, [allBrandProducts, search, selectedCategory, selectedManufacturer]);
 
   // Pagination

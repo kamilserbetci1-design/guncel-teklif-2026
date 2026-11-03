@@ -72,12 +72,43 @@ export function asciiSearchQuery(query: string) {
   return foldSearchText(query);
 }
 
-/** 412.G.GN.150.D.2 / CS-TEZ-3700 gibi ürün kodu aramaları. */
+/** Nokta/tire/boşluk farkını yok sayan ürün kodu. cs.dbn.700 === CS-DBN 700 */
+export function compactCode(value: string) {
+  return foldSearchText(value).replace(/\s+/g, '');
+}
+
+/** 412.G.GN.150.D.2 / CS-TEZ-3700 / cs.dbn.700 gibi ürün kodu aramaları. */
 export function isSkuLikeQuery(query: string) {
   const compact = (query || '').trim().replace(/\s+/g, '');
   if (compact.length < 5) return false;
-  if (!/^[A-Za-z0-9]+([.\-\/_][A-Za-z0-9]+)+$/.test(compact)) return false;
-  return /[0-9]/.test(compact) && /[A-Za-z]/.test(compact);
+  if (/^[A-Za-z0-9]+([.\-\/_][A-Za-z0-9]+)+$/.test(compact) && /[0-9]/.test(compact) && /[A-Za-z]/.test(compact)) {
+    return true;
+  }
+  const c = compactCode(query);
+  return c.length >= 6 && /[a-z]/.test(c) && /[0-9]/.test(c);
+}
+
+function itemSku(item: { sku?: string; code?: string }) {
+  return (item.sku || item.code || '').trim();
+}
+
+/** Birebir kod > aynı karakterler > kodun uzantısı > içinde geçen. */
+export function scoreSku(sku: string, query: string) {
+  const qRaw = (query || '').trim();
+  const sRaw = (sku || '').trim();
+  if (!qRaw || !sRaw) return 0;
+  if (sRaw.toLocaleLowerCase('tr-TR') === qRaw.toLocaleLowerCase('tr-TR')) return 1_000_000;
+  const qC = compactCode(qRaw);
+  const sC = compactCode(sRaw);
+  if (!qC || !sC) return 0;
+  if (sC === qC) {
+    const seps = (v: string) => v.replace(/[A-Za-z0-9ğüşıöçĞÜŞİÖÇ]/g, '');
+    return seps(sRaw) === seps(qRaw) ? 900_000 : 800_000;
+  }
+  if (sC.startsWith(qC)) return Math.max(100_000, 600_000 - (sC.length - qC.length) * 20);
+  if (qC.length >= 5 && sC.includes(qC)) return 200_000;
+  if (sC.length >= 5 && qC.startsWith(sC)) return 80_000;
+  return 0;
 }
 
 const variants = (token: string) => {
@@ -131,12 +162,24 @@ export function scoreSearchText(hayRaw: string, query: string) {
 export function productSearchHay(p: {
   name?: string;
   sku?: string;
+  code?: string;
   category?: string;
   manufacturer?: string;
+  brand?: string;
   description?: string;
   product_link?: string;
+  color?: string;
 }) {
-  return [p.name, p.sku, p.category, p.manufacturer, p.description, p.product_link].filter(Boolean).join(' ');
+  return [p.name, p.sku, p.code, p.category, p.manufacturer, p.brand, p.description, p.product_link, p.color].filter(Boolean).join(' ');
+}
+
+export function scoreProduct(item: Parameters<typeof productSearchHay>[0], query: string) {
+  const q = (query || '').trim();
+  if (!q) return 0;
+  const skuScore = scoreSku(itemSku(item), q);
+  const textScore = scoreSearchText(productSearchHay(item), q);
+  if (skuScore === 0 && textScore === 0) return 0;
+  return skuScore + textScore;
 }
 
 export function foldedIncludes(hay: string, query: string) {
@@ -151,10 +194,23 @@ export function foldedIncludes(hay: string, query: string) {
 export function rankProducts<T extends Parameters<typeof productSearchHay>[0]>(items: T[], query: string, limit = 80): T[] {
   const q = query.trim();
   if (!q) return items.slice(0, limit);
-  return items
-    .map((item) => ({ item, score: scoreSearchText(productSearchHay(item), q) }))
-    .filter((x) => x.score > 0)
-    .sort((a, b) => b.score - a.score)
+  const codeQuery = isSkuLikeQuery(q);
+  const qC = compactCode(q);
+  const ranked = items
+    .map((item) => {
+      const skuScore = scoreSku(itemSku(item), q);
+      const textScore = scoreSearchText(productSearchHay(item), q);
+      return { item, skuScore, textScore, score: skuScore + textScore };
+    })
+    .filter((x) => {
+      if (x.score <= 0) return false;
+      if (!codeQuery) return true;
+      if (x.skuScore > 0) return true;
+      const nameC = compactCode(x.item.name || '');
+      return !!qC && (nameC === qC || nameC.startsWith(qC));
+    })
+    .sort((a, b) => b.skuScore - a.skuScore || b.textScore - a.textScore)
     .slice(0, limit)
     .map((x) => x.item);
+  return ranked;
 }
