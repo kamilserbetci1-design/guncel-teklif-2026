@@ -25,7 +25,7 @@
 }
 
 .print-keep,
-.print-end {
+.pdf-row {
   break-inside: avoid;
   page-break-inside: avoid;
 }
@@ -42,16 +42,12 @@
     border-radius: 0 !important;
   }
   .print-keep,
-  .print-end {
+  .pdf-row {
     break-inside: avoid !important;
     page-break-inside: avoid !important;
   }
   thead {
     display: table-header-group;
-  }
-  tr {
-    break-inside: avoid;
-    page-break-inside: avoid;
   }
 }
 

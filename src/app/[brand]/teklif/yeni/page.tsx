@@ -1231,10 +1231,15 @@ export default function YeniTeklifPage() {
             el.style.boxShadow = 'none';
             el.style.borderRadius = '0';
             el.style.margin = '0';
+            doc.querySelectorAll('img').forEach((img) => {
+              const node = img as HTMLElement;
+              node.style.breakInside = 'auto';
+              node.style.pageBreakInside = 'auto';
+            });
           },
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-        pagebreak: { mode: ['css'], avoid: ['.print-keep', '.print-end'] },
+        pagebreak: { mode: ['css'], avoid: ['.pdf-row', '.print-keep'] },
       };
       try {
         await html2pdf().set(opt).from(printRef.current).save();
@@ -1527,6 +1532,7 @@ export default function YeniTeklifPage() {
 
           {/* Items — Liste */}
           {items.length > 0 && viewMode === 'liste' && (
+            <div>
             <table className="w-full text-sm" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
               <colgroup>
                 <col style={{ width: isMutproLook ? '52px' : '40px' }} />
@@ -1546,14 +1552,29 @@ export default function YeniTeklifPage() {
                   {!globalHidePrices && <th style={thStyle} className={`text-[11px] font-extrabold uppercase ${isMutproLook ? 'text-right' : 'text-center py-4 px-3'}`}>Toplam Fiyat</th>}
                 </tr>
               </thead>
-              <tbody>
+            </table>
                 {(() => { let pIdx = 0; return items.map((item, idx) => {
+                  const rowCols = (
+                    <colgroup>
+                      <col style={{ width: isMutproLook ? '52px' : '40px' }} />
+                      {!isCompactMode && <col style={{ width: `${(isMutproLook ? listThumb : 80) + 24}px` }} />}
+                      <col />
+                      <col style={{ width: isMutproLook ? '72px' : '56px' }} />
+                      {!globalHidePrices && <col style={{ width: isMutproLook ? '140px' : '128px' }} />}
+                      {!globalHidePrices && <col style={{ width: isMutproLook ? '140px' : '128px' }} />}
+                    </colgroup>
+                  );
                   if (item.type === 'section') {
                     const colCount = (!isCompactMode ? 1 : 0) + (!globalHidePrices ? 2 : 0) + 3;
                     return (
-                      <tr key={item.id} style={{ borderBottom: isMutproLook ? `1px solid ${mutRowLine}` : `2px solid ${brand.tableBorderHex}`, backgroundColor: isMutproLook ? mutCream : brand.tableHeaderBgHex + '22', pageBreakInside: 'avoid' }}>
-                        <td colSpan={colCount} className="py-3 px-4 text-center font-bold text-sm uppercase tracking-wide" style={isMutproLook ? { color: mutNavy, letterSpacing: '0.08em' } : { color: '#374151' }}>{item.name}</td>
-                      </tr>
+                      <table key={item.id} className="pdf-row w-full text-sm" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
+                        {rowCols}
+                        <tbody>
+                          <tr style={{ borderBottom: isMutproLook ? `1px solid ${mutRowLine}` : `2px solid ${brand.tableBorderHex}`, backgroundColor: isMutproLook ? mutCream : brand.tableHeaderBgHex + '22' }}>
+                            <td colSpan={colCount} className="py-3 px-4 text-center font-bold text-sm uppercase tracking-wide" style={isMutproLook ? { color: mutNavy, letterSpacing: '0.08em' } : { color: '#374151' }}>{item.name}</td>
+                          </tr>
+                        </tbody>
+                      </table>
                     );
                   }
                   pIdx++;
@@ -1562,7 +1583,10 @@ export default function YeniTeklifPage() {
                   const isHidden = globalHidePrices || item.hide_price;
                   const thumb = listThumb;
                   return (
-                    <tr key={item.id} className={item.shipped ? 'line-through opacity-50' : ''} style={{ borderBottom: isMutproLook ? `1px solid ${mutRowLine}` : (useRedRowLines ? `1px solid ${brand.accentColor}4d` : `1px solid ${brand.tableBorderHex}`), backgroundColor: useRedRowLines ? '#ffffff' : (idx % 2 === 1 ? brand.tableStripeBgHex : '#ffffff'), pageBreakInside: 'avoid' }}>
+                    <table key={item.id} className={`pdf-row w-full text-sm ${item.shipped ? 'line-through opacity-50' : ''}`} style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
+                      {rowCols}
+                      <tbody>
+                    <tr style={{ borderBottom: isMutproLook ? `1px solid ${mutRowLine}` : (useRedRowLines ? `1px solid ${brand.accentColor}4d` : `1px solid ${brand.tableBorderHex}`), backgroundColor: useRedRowLines ? '#ffffff' : (idx % 2 === 1 ? brand.tableStripeBgHex : '#ffffff') }}>
                       <td className={`${isMutproLook ? '' : 'py-5 px-3'} text-center font-medium text-sm`} style={{ ...(mutCellPad || {}), ...(isMutproLook ? { color: mutNavy, fontWeight: 700, fontVariantNumeric: 'tabular-nums', fontSize: '12px' } : {}) }}>
                         {isMutproLook ? String(pIdx).padStart(2, '0') : pIdx}
                       </td>
@@ -1584,10 +1608,11 @@ export default function YeniTeklifPage() {
                       {isHidden && !globalHidePrices && <td className="py-3 px-2 text-center text-gray-400" style={mutCellPad}>-</td>}
                       {isHidden && !globalHidePrices && <td className="py-3 px-2 text-center text-gray-400" style={mutCellPad}>-</td>}
                     </tr>
+                      </tbody>
+                    </table>
                   );
                 }); })()}
-              </tbody>
-            </table>
+            </div>
           )}
 
           {/* Katalog — MutPro: ürün önde, numara görselde */}
@@ -1659,7 +1684,7 @@ export default function YeniTeklifPage() {
             </div>
           )}
 
-          <div className="print-end" style={{ marginTop: 20, paddingTop: 4 }}>
+          <div style={{ marginTop: 20, paddingTop: 4 }}>
           {!globalHidePrices && (
             <div style={{ display: 'block', width: '24rem', maxWidth: '100%', marginLeft: 'auto' }}>
               {previewTotalsInner}
