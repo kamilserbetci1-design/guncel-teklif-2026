@@ -1513,7 +1513,7 @@ export default function YeniTeklifPage() {
               </div>
             </div>
           ) : (
-          <div className="grid grid-cols-2 gap-6 mb-8" style={{ pageBreakAfter: 'avoid' }}>
+          <div className="grid grid-cols-2 gap-6 mb-8">
             <div className="bg-gray-50 rounded-lg p-4">
               <h3 className="text-xs font-bold text-gray-500 uppercase mb-2">Müşteri Bilgileri</h3>
               {customerName ? <div className="text-sm font-bold text-gray-900" dangerouslySetInnerHTML={{ __html: renderRichHtml(customerName) }} /> : <div className="text-sm font-bold text-gray-900">-</div>}
@@ -1698,16 +1698,6 @@ export default function YeniTeklifPage() {
             </div>
           )}
 
-          {brand.brandLogos.length > 0 && (
-            <div className="pt-5 mt-5" style={{ borderTop: '1px solid #e5e7eb' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '20px 16px', alignItems: 'center', justifyItems: 'center' }}>
-                {brand.brandLogos.map((logo, i) => (
-                  <img key={i} src={logo} style={{ height: '61px', width: 'auto', objectFit: 'contain', opacity: 0.7 }} alt="" crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                ))}
-              </div>
-            </div>
-          )}
-
           {showStamp && (
             <div className="mt-5 flex justify-end">
               {previewStamp}
@@ -1737,6 +1727,16 @@ export default function YeniTeklifPage() {
               ) : null}
             </div>
           </div>
+
+          {brand.brandLogos.length > 0 && (
+            <div className="pt-5 mt-4" style={{ borderTop: '1px solid #e5e7eb' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '20px 16px', alignItems: 'center', justifyItems: 'center' }}>
+                {brand.brandLogos.map((logo, i) => (
+                  <img key={i} src={logo} style={{ height: '61px', width: 'auto', objectFit: 'contain', opacity: 0.7 }} alt="" crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                ))}
+              </div>
+            </div>
+          )}
           </div>
         </div>
         </div>
