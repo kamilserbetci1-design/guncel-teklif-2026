@@ -1339,17 +1339,14 @@ export default function YeniTeklifPage() {
   };
 
   const previewTotalsInner = !globalHidePrices ? (
-              <div
-                className="space-y-2 text-sm"
-                style={isMutproLook ? { backgroundColor: mutCream, padding: '16px 20px', borderRadius: '6px', borderTop: `1px solid ${mutOrange}` } : undefined}
-              >
+              <div className="space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-gray-600">Ara Toplam (KDV Hariç):</span><span className="font-semibold" style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(subTotal), sym)}</span></div>
                 {discountAmount > 0 && <div className="flex justify-between text-red-600"><span>İndirim{discountMode === 'percent' ? ` (%${discountValue})` : ''}:</span><span>-{formatCurrency(convertCurrency(discountAmount), sym)}</span></div>}
                 {discountAmount > 0 && <div className="flex justify-between border-t pt-1"><span className="text-gray-600">İndirimli Toplam:</span><span className="font-semibold">{formatCurrency(convertCurrency(discountedSubTotal), sym)}</span></div>}
                 {showVAT && <div className="flex justify-between"><span className="text-gray-600">KDV (%20):</span><span style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(kdvTotal), sym)}</span></div>}
                 {shippingCost > 0 && <div className="flex justify-between"><span className="text-gray-600">Kargo / Taşıma Bedeli:</span><span style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(shippingCost), sym)}</span></div>}
                 {installment > 0 && <div className="flex justify-between text-orange-600"><span>Taksit Farkı ({installment} taksit, %{installment*3}):</span><span>+{formatCurrency(convertCurrency(installmentExtra), sym)}</span></div>}
-                <div className={`flex justify-between text-lg font-extrabold pt-2 mt-2 ${isMutproLook ? '' : 'border-t-2 border-gray-800'}`} style={isMutproLook ? { color: mutNavy, borderTop: `1px solid ${mutNavy}` } : undefined}><span>GENEL TOPLAM:</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(convertCurrency(finalTotal), sym)}</span></div>
+                <div className="flex justify-between text-lg font-extrabold pt-2 mt-2 border-t-2 border-gray-800" style={isMutproLook ? { color: mutNavy } : undefined}><span>GENEL TOPLAM:</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(convertCurrency(finalTotal), sym)}</span></div>
                 <div className="text-right text-xs text-gray-500 italic">{numberToText(convertCurrency(finalTotal), currency)}</div>
                 {totalEquivalents.length > 0 && (
                   <div className="flex flex-wrap justify-end items-center gap-x-2 text-[11px] text-gray-500 pt-1.5">
