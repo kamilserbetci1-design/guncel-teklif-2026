@@ -1422,11 +1422,11 @@ export default function YeniTeklifPage() {
               <table style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse' }}>
                 <tbody>
                   <tr>
-                    <td style={{ width: '50%', verticalAlign: 'top', padding: '0 24px 0 0' }}>
+                    <td style={{ width: '50%', verticalAlign: 'middle', padding: '0 24px 0 0' }}>
                       <img src={brand.logo} alt={brand.name} style={{ height: '86px', width: 'auto', maxWidth: '336px', objectFit: 'contain', display: 'block' }} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     </td>
-                    <td style={{ width: '50%', verticalAlign: 'top', padding: 0, textAlign: 'right' }}>
-                      <h1 style={{ margin: 0, padding: 0, lineHeight: 1, fontSize: '18px', fontWeight: 800, letterSpacing: '0.04em', color: mutNavy }}>{proposalTitle}</h1>
+                    <td style={{ width: '50%', verticalAlign: 'middle', padding: 0, textAlign: 'right' }}>
+                      <h1 style={{ margin: 0, padding: 0, lineHeight: 1, fontSize: '22px', fontWeight: 800, letterSpacing: '0.04em', color: mutNavy }}>{proposalTitle}</h1>
                     </td>
                   </tr>
                   <tr>
