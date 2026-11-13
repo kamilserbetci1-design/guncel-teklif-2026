@@ -1686,9 +1686,15 @@ export default function YeniTeklifPage() {
 
           <div style={{ marginTop: 20, paddingTop: 4 }}>
           {!globalHidePrices && (
-            <div style={{ display: 'block', width: '24rem', maxWidth: '100%', marginLeft: 'auto' }}>
-              {previewTotalsInner}
-            </div>
+            <table className="pdf-row print-keep" style={{ width: '24rem', maxWidth: '100%', marginLeft: 'auto', borderCollapse: 'collapse', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+              <tbody>
+                <tr>
+                  <td style={{ padding: 0, pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                    {previewTotalsInner}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           )}
 
           {showIban && (
