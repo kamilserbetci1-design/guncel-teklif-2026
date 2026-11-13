@@ -1277,6 +1277,12 @@ export default function YeniTeklifPage() {
               node.style.maxHeight = '86px';
               node.style.maxWidth = '203px';
             }
+            if (node.src.includes('myikas.com')) {
+              node.style.height = '52px';
+              node.style.maxHeight = '52px';
+              node.style.maxWidth = '110px';
+              node.style.objectFit = 'contain';
+            }
           });
         },
       });
@@ -1874,13 +1880,19 @@ export default function YeniTeklifPage() {
           </table>
 
           {brand.brandLogos.length > 0 && (
-            <div className="pt-5 mt-4" style={{ borderTop: '1px solid #e5e7eb' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '20px 16px', alignItems: 'center', justifyItems: 'center' }}>
-                {brand.brandLogos.map((logo, i) => (
-                  <img key={i} src={logo} style={{ height: '61px', width: 'auto', objectFit: 'contain', opacity: 0.7 }} alt="" crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            <table className="print-keep pdf-row" style={{ width: '100%', borderCollapse: 'collapse', marginTop: '16px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+              <tbody>
+                {Array.from({ length: Math.ceil(brand.brandLogos.length / 5) }, (_, row) => (
+                  <tr key={row}>
+                    {brand.brandLogos.slice(row * 5, row * 5 + 5).map((logo, i) => (
+                      <td key={`${row}-${i}`} style={{ width: '20%', height: '76px', textAlign: 'center', verticalAlign: 'middle', padding: '8px', borderTop: row === 0 ? '1px solid #e5e7eb' : undefined, overflow: 'hidden' }}>
+                        <img src={logo} alt="" height={52} style={{ height: '52px', width: 'auto', maxWidth: '110px', maxHeight: '52px', objectFit: 'contain', display: 'inline-block', opacity: 0.7 }} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                      </td>
+                    ))}
+                  </tr>
                 ))}
-              </div>
-            </div>
+              </tbody>
+            </table>
           )}
           </div>
         </div>
