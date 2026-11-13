@@ -1399,32 +1399,75 @@ export default function YeniTeklifPage() {
   };
 
   const previewTotalsInner = !globalHidePrices ? (
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between"><span className="text-gray-600">Ara Toplam (KDV Hariç):</span><span className="font-semibold" style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(subTotal), sym)}</span></div>
-                {discountAmount > 0 && <div className="flex justify-between text-red-600"><span>İndirim{discountMode === 'percent' ? ` (%${discountValue})` : ''}:</span><span>-{formatCurrency(convertCurrency(discountAmount), sym)}</span></div>}
-                {discountAmount > 0 && <div className="flex justify-between border-t pt-1"><span className="text-gray-600">İndirimli Toplam:</span><span className="font-semibold">{formatCurrency(convertCurrency(discountedSubTotal), sym)}</span></div>}
-                {showVAT && <div className="flex justify-between"><span className="text-gray-600">KDV (%20):</span><span style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(kdvTotal), sym)}</span></div>}
-                {shippingCost > 0 && <div className="flex justify-between"><span className="text-gray-600">Kargo / Taşıma Bedeli:</span><span style={isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : undefined}>{formatCurrency(convertCurrency(shippingCost), sym)}</span></div>}
-                {installment > 0 && <div className="flex justify-between text-orange-600"><span>Taksit Farkı ({installment} taksit, %{installment*3}):</span><span>+{formatCurrency(convertCurrency(installmentExtra), sym)}</span></div>}
-                <div className="flex justify-between text-lg font-extrabold pt-2 mt-2 border-t-2 border-gray-800" style={isMutproLook ? { color: mutNavy } : undefined}><span>GENEL TOPLAM:</span><span style={{ fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(convertCurrency(finalTotal), sym)}</span></div>
-                <div className="text-right text-xs text-gray-500 italic">{numberToText(convertCurrency(finalTotal), currency)}</div>
-                {totalEquivalents.length > 0 && (
-                  <div className="flex flex-wrap justify-end items-center gap-x-2 text-[11px] text-gray-500 pt-1.5">
-                    {totalEquivalents.map((c, i) => (
-                      <span key={c.code} className="inline-flex items-center gap-2">
-                        {i > 0 && <span className="text-gray-300">|</span>}
-                        <span>{formatCurrency(c.amount, getCurrencySymbol(c.code))}</span>
-                      </span>
-                    ))}
-                  </div>
-                )}
-                {paidAmount > 0 && (
-                  <>
-                    <div className="flex justify-between text-emerald-700 pt-2"><span>Ödenen{paymentType ? ` (${PAYMENT_TYPES[paymentType]})` : ''} ({currency}):</span><span>-{formatCurrency(convertCurrency(paidAmount), sym)}</span></div>
-                    <div className={`flex justify-between font-bold ${remainingAmount > 0.009 ? 'text-orange-600' : 'text-emerald-700'}`}><span>Kalan:</span><span>{formatCurrency(convertCurrency(Math.max(0, remainingAmount)), sym)}</span></div>
-                  </>
-                )}
-              </div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px', fontVariantNumeric: 'tabular-nums' }}>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: '3px 16px 3px 0', color: '#4b5563' }}>Ara Toplam (KDV Hariç):</td>
+                    <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600, color: isMutproLook ? mutNavy : undefined }}>{formatCurrency(convertCurrency(subTotal), sym)}</td>
+                  </tr>
+                  {discountAmount > 0 && (
+                    <tr style={{ color: '#dc2626' }}>
+                      <td style={{ padding: '3px 16px 3px 0' }}>İndirim{discountMode === 'percent' ? ` (%${discountValue})` : ''}:</td>
+                      <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap' }}>-{formatCurrency(convertCurrency(discountAmount), sym)}</td>
+                    </tr>
+                  )}
+                  {discountAmount > 0 && (
+                    <tr>
+                      <td style={{ padding: '6px 16px 3px 0', borderTop: '1px solid #e5e7eb', color: '#4b5563' }}>İndirimli Toplam:</td>
+                      <td style={{ padding: '6px 0 3px', borderTop: '1px solid #e5e7eb', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>{formatCurrency(convertCurrency(discountedSubTotal), sym)}</td>
+                    </tr>
+                  )}
+                  {showVAT && (
+                    <tr>
+                      <td style={{ padding: '3px 16px 3px 0', color: '#4b5563' }}>KDV (%20):</td>
+                      <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap', color: isMutproLook ? mutNavy : undefined }}>{formatCurrency(convertCurrency(kdvTotal), sym)}</td>
+                    </tr>
+                  )}
+                  {shippingCost > 0 && (
+                    <tr>
+                      <td style={{ padding: '3px 16px 3px 0', color: '#4b5563' }}>Kargo / Taşıma Bedeli:</td>
+                      <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap', color: isMutproLook ? mutNavy : undefined }}>{formatCurrency(convertCurrency(shippingCost), sym)}</td>
+                    </tr>
+                  )}
+                  {installment > 0 && (
+                    <tr style={{ color: '#ea580c' }}>
+                      <td style={{ padding: '3px 16px 3px 0' }}>Taksit Farkı ({installment} taksit, %{installment * 3}):</td>
+                      <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap' }}>+{formatCurrency(convertCurrency(installmentExtra), sym)}</td>
+                    </tr>
+                  )}
+                  <tr style={{ color: isMutproLook ? mutNavy : undefined }}>
+                    <td style={{ padding: '10px 16px 3px 0', borderTop: '2px solid #1f2937', fontSize: '18px', fontWeight: 800 }}>GENEL TOPLAM:</td>
+                    <td style={{ padding: '10px 0 3px', borderTop: '2px solid #1f2937', textAlign: 'right', whiteSpace: 'nowrap', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(convertCurrency(finalTotal), sym)}</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={2} style={{ padding: '2px 0 0', textAlign: 'right', fontSize: '12px', fontStyle: 'italic', color: '#6b7280' }}>{numberToText(convertCurrency(finalTotal), currency)}</td>
+                  </tr>
+                  {totalEquivalents.length > 0 && (
+                    <tr>
+                      <td colSpan={2} style={{ padding: '6px 0 0', textAlign: 'right', fontSize: '11px', color: '#6b7280', whiteSpace: 'nowrap' }}>
+                        {totalEquivalents.map((c, i) => (
+                          <span key={c.code}>
+                            {i > 0 && <span style={{ color: '#d1d5db' }}> | </span>}
+                            {formatCurrency(c.amount, getCurrencySymbol(c.code))}
+                          </span>
+                        ))}
+                      </td>
+                    </tr>
+                  )}
+                  {paidAmount > 0 && (
+                    <tr style={{ color: '#047857' }}>
+                      <td style={{ padding: '8px 16px 3px 0' }}>Ödenen{paymentType ? ` (${PAYMENT_TYPES[paymentType]})` : ''} ({currency}):</td>
+                      <td style={{ padding: '8px 0 3px', textAlign: 'right', whiteSpace: 'nowrap' }}>-{formatCurrency(convertCurrency(paidAmount), sym)}</td>
+                    </tr>
+                  )}
+                  {paidAmount > 0 && (
+                    <tr style={{ color: remainingAmount > 0.009 ? '#ea580c' : '#047857', fontWeight: 700 }}>
+                      <td style={{ padding: '3px 16px 3px 0' }}>Kalan:</td>
+                      <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(convertCurrency(Math.max(0, remainingAmount)), sym)}</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
   ) : null;
 
   const previewStamp = showStamp ? (
