@@ -1435,9 +1435,12 @@ export default function YeniTeklifPage() {
                       <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap' }}>+{formatCurrency(convertCurrency(installmentExtra), sym)}</td>
                     </tr>
                   )}
+                  <tr aria-hidden>
+                    <td colSpan={2} style={{ height: '10px', padding: 0, borderBottom: '2px solid #1f2937', lineHeight: 0, fontSize: 0 }} />
+                  </tr>
                   <tr style={{ color: isMutproLook ? mutNavy : undefined }}>
-                    <td style={{ padding: '10px 16px 3px 0', borderTop: '2px solid #1f2937', fontSize: '18px', fontWeight: 800 }}>GENEL TOPLAM:</td>
-                    <td style={{ padding: '10px 0 3px', borderTop: '2px solid #1f2937', textAlign: 'right', whiteSpace: 'nowrap', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(convertCurrency(finalTotal), sym)}</td>
+                    <td style={{ padding: '12px 16px 3px 0', fontSize: '18px', fontWeight: 800 }}>GENEL TOPLAM:</td>
+                    <td style={{ padding: '12px 0 3px', textAlign: 'right', whiteSpace: 'nowrap', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(convertCurrency(finalTotal), sym)}</td>
                   </tr>
                   <tr>
                     <td colSpan={2} style={{ padding: '2px 0 0', textAlign: 'right', fontSize: '12px', fontStyle: 'italic', color: '#6b7280' }}>{numberToText(convertCurrency(finalTotal), currency)}</td>
