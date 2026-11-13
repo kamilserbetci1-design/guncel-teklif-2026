@@ -1210,42 +1210,88 @@ export default function YeniTeklifPage() {
     if (!printRef.current) return;
     if (!isFormValid) return alert('PDF oluşturmak için "Teklifi Hazırlayan" alanı zorunludur!');
     rememberPreparedBy(preparedBy);
+    const source = printRef.current;
+    const pushed: HTMLElement[] = [];
+    const y = window.scrollY;
     try {
-      const html2pdf = (await import('html2pdf.js')).default;
-      const y = window.scrollY;
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
       window.scrollTo(0, 0);
-      const opt = {
-        margin: [8, 8, 10, 8],
-        filename: `${proposalNo}_${projectName || 'Teklif'}.pdf`,
-        image: { type: 'jpeg', quality: 0.96 },
-        html2canvas: {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-          scrollX: 0,
-          scrollY: 0,
-          windowWidth: printRef.current.scrollWidth,
-          onclone: (doc: Document) => {
-            const el = doc.querySelector('.page-container') as HTMLElement | null;
-            if (!el) return;
-            el.style.boxShadow = 'none';
-            el.style.borderRadius = '0';
-            el.style.margin = '0';
-            doc.querySelectorAll('img').forEach((img) => {
-              const node = img as HTMLElement;
-              node.style.breakInside = 'auto';
-              node.style.pageBreakInside = 'auto';
-            });
-          },
+      const width = source.offsetWidth;
+      const pageCssHeight = width * (279 / 194);
+      const blocks = Array.from(source.querySelectorAll<HTMLElement>('.pdf-row, .print-keep')).filter(
+        (node) => !node.parentElement?.closest('.pdf-row, .print-keep')
+      );
+      blocks.forEach((node) => {
+        const rootTop = source.getBoundingClientRect().top;
+        const rect = node.getBoundingClientRect();
+        const top = rect.top - rootTop;
+        const height = rect.height;
+        if (height <= 0 || height >= pageCssHeight - 8) return;
+        const pageEnd = (Math.floor(top / pageCssHeight) + 1) * pageCssHeight;
+        if (top + height > pageEnd - 2 && top > Math.floor(top / pageCssHeight) * pageCssHeight + 2) {
+          const shift = pageEnd - top + 2;
+          const current = parseFloat(node.style.marginTop || '0') || 0;
+          node.dataset.pdfPush = String(shift);
+          node.style.marginTop = `${current + shift}px`;
+          pushed.push(node);
+        }
+      });
+      const canvas = await html2canvas(source, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: 0,
+        windowWidth: Math.max(document.documentElement.clientWidth, width),
+        width,
+        onclone: (doc: Document) => {
+          const el = doc.querySelector('.page-container') as HTMLElement | null;
+          if (!el) return;
+          el.style.boxShadow = 'none';
+          el.style.borderRadius = '0';
+          el.style.margin = '0';
+          el.style.width = `${width}px`;
+          el.style.minWidth = `${width}px`;
+          el.style.maxWidth = `${width}px`;
+          doc.querySelectorAll('img').forEach((img) => {
+            const node = img as HTMLImageElement;
+            node.style.breakInside = 'auto';
+            node.style.pageBreakInside = 'auto';
+            if (node.src.includes('mutpro-mavi-logo')) {
+              node.style.height = '86px';
+              node.style.width = '203px';
+              node.style.maxHeight = '86px';
+              node.style.maxWidth = '203px';
+            }
+          });
         },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-        pagebreak: { mode: ['css'], avoid: ['.pdf-row', '.print-keep'] },
-      };
-      try {
-        await html2pdf().set(opt).from(printRef.current).save();
-      } finally {
-        window.scrollTo(0, y);
+      });
+      const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+      const marginX = 8;
+      const marginTop = 8;
+      const innerW = 194;
+      const sliceH = Math.floor(pageCssHeight * (canvas.width / width));
+      const pageCanvas = document.createElement('canvas');
+      const ctx = pageCanvas.getContext('2d');
+      if (!ctx) throw new Error('canvas');
+      pageCanvas.width = canvas.width;
+      let offset = 0;
+      let page = 0;
+      while (offset < canvas.height - 1) {
+        const h = Math.min(sliceH, canvas.height - offset);
+        pageCanvas.height = h;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, pageCanvas.width, h);
+        ctx.drawImage(canvas, 0, offset, canvas.width, h, 0, 0, canvas.width, h);
+        if (page) pdf.addPage();
+        const pageMm = (h / canvas.width) * innerW;
+        pdf.addImage(pageCanvas.toDataURL('image/jpeg', 0.98), 'JPEG', marginX, marginTop, innerW, pageMm);
+        offset += h;
+        page += 1;
       }
+      pdf.save(`${proposalNo}_${projectName || 'Teklif'}.pdf`);
 
       if (editId) {
         const current = buildSavedProposal(editId, proposalNo, 'sent');
@@ -1255,6 +1301,15 @@ export default function YeniTeklifPage() {
       }
     } catch {
       alert('PDF oluşturulurken hata oluştu.');
+    } finally {
+      pushed.forEach((node) => {
+        const shift = Number(node.dataset.pdfPush || 0);
+        const current = parseFloat(node.style.marginTop || '0') || 0;
+        const next = current - shift;
+        node.style.marginTop = next > 0.5 ? `${next}px` : '';
+        delete node.dataset.pdfPush;
+      });
+      window.scrollTo(0, y);
     }
   };
 
@@ -1423,7 +1478,7 @@ export default function YeniTeklifPage() {
                 <tbody>
                   <tr>
                     <td style={{ width: '50%', verticalAlign: 'middle', padding: '0 24px 0 0' }}>
-                      <img src={brand.logo} alt={brand.name} style={{ height: '86px', width: 'auto', maxWidth: '336px', objectFit: 'contain', display: 'block' }} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                      <img src={brand.logo} alt={brand.name} width={203} height={86} style={{ height: '86px', width: '203px', maxWidth: '203px', maxHeight: '86px', objectFit: 'contain', display: 'block' }} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     </td>
                     <td style={{ width: '50%', verticalAlign: 'middle', padding: 0, textAlign: 'right' }}>
                       <h1 style={{ margin: 0, padding: 0, lineHeight: 1, fontSize: '22px', fontWeight: 800, letterSpacing: '0.04em', color: mutNavy }}>{proposalTitle}</h1>
