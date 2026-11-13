@@ -1283,6 +1283,15 @@ export default function YeniTeklifPage() {
               node.style.maxWidth = '110px';
               node.style.objectFit = 'contain';
             }
+            const photo = node.getAttribute('data-pdf-photo');
+            if (photo) {
+              node.style.width = `${photo}px`;
+              node.style.height = `${photo}px`;
+              node.style.maxWidth = `${photo}px`;
+              node.style.maxHeight = `${photo}px`;
+              node.style.objectFit = 'contain';
+              node.style.display = 'block';
+            }
           });
         },
       });
@@ -1711,8 +1720,8 @@ export default function YeniTeklifPage() {
                       </td>
                       {!isCompactMode && (
                         <td className={isMutproLook ? '' : 'py-4 px-3'} style={mutCellPad}>
-                          <div style={{ width: `${thumb}px`, height: `${thumb}px`, border: isMutproLook ? `1px solid ${mutRowLine}` : '1px solid #e5e7eb', borderRadius: isMutproLook ? '6px' : '4px', backgroundColor: '#fff', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {item.image ? <img src={cafeMarktProxiedImage(item.image)} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', width: 'auto', height: 'auto' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6' }} />}
+                          <div style={{ width: `${thumb}px`, height: `${thumb}px`, border: isMutproLook ? `1px solid ${mutRowLine}` : '1px solid #e5e7eb', borderRadius: isMutproLook ? '6px' : '4px', backgroundColor: '#fff', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', boxSizing: 'border-box' }}>
+                            {item.image ? <img src={cafeMarktProxiedImage(item.image)} data-pdf-photo={thumb} width={thumb} height={thumb} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ width: `${thumb}px`, height: `${thumb}px`, objectFit: 'contain', display: 'block' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6' }} />}
                           </div>
                         </td>
                       )}
@@ -1751,7 +1760,7 @@ export default function YeniTeklifPage() {
                 return (
                   <div key={item.id} className={`print-keep ${item.shipped ? 'opacity-50 line-through' : ''}`} style={{ width: '100%', display: 'grid', gridTemplateColumns: `${catalogThumb + 28}px 1fr`, alignItems: 'stretch', borderRadius: '6px', overflow: 'hidden', boxSizing: 'border-box', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                     <div style={{ position: 'relative', backgroundColor: '#fff', minHeight: `${catalogThumb}px`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '14px', borderRight: `1px solid ${mutRowLine}` }}>
-                      {item.image ? <img src={cafeMarktProxiedImage(item.image)} alt="" crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: `${catalogThumb}px`, maxHeight: `${catalogThumb}px`, objectFit: 'contain', width: 'auto', height: 'auto' }} /> : null}
+                      {item.image ? <img src={cafeMarktProxiedImage(item.image)} alt="" data-pdf-photo={catalogThumb} width={catalogThumb} height={catalogThumb} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ width: `${catalogThumb}px`, height: `${catalogThumb}px`, objectFit: 'contain', display: 'block' }} /> : null}
                       <div style={{ position: 'absolute', left: 10, bottom: 10, backgroundColor: mutNavy, color: '#fff', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', fontVariantNumeric: 'tabular-nums', padding: '3px 7px', borderRadius: '4px' }}>{no}</div>
                     </div>
                     <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', backgroundColor: mutCream, padding: '14px 16px' }}>
@@ -1785,7 +1794,7 @@ export default function YeniTeklifPage() {
                 return (
                   <div key={item.id} className={`flex gap-5 p-4 ${isMutproLook ? '' : 'rounded-xl border'} ${item.shipped ? 'opacity-50 line-through' : ''}`} style={{ border: isMutproLook ? `1px solid ${mutHair}` : undefined, borderRadius: isMutproLook ? '8px' : undefined, borderColor: isMutproLook ? mutHair : brand.tableBorderHex, pageBreakInside: 'avoid' }}>
                     <div style={{ width: `${catalogThumb}px`, height: `${catalogThumb}px`, flexShrink: 0, border: isMutproLook ? `1px solid ${mutHair}` : '1px solid #e5e7eb', borderRadius: isMutproLook ? '6px' : '8px', backgroundColor: '#fff', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      {item.image ? <img src={cafeMarktProxiedImage(item.image)} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', width: 'auto', height: 'auto' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6' }} />}
+                      {item.image ? <img src={cafeMarktProxiedImage(item.image)} data-pdf-photo={catalogThumb} width={catalogThumb} height={catalogThumb} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ width: `${catalogThumb}px`, height: `${catalogThumb}px`, objectFit: 'contain', display: 'block' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6' }} />}
                     </div>
                     <div className="flex-1 min-w-0">
                       {isMutproLook && <div style={{ fontSize: '11px', fontWeight: 700, fontVariantNumeric: 'tabular-nums', color: mutNavy, marginBottom: '4px' }}>{String(pIdx).padStart(2, '0')}</div>}
