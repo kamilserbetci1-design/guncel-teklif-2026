@@ -38,7 +38,7 @@ export default function RichEditor({
   // Düz metin (etiket yok) ise satır sonlarını <br>'e çevir ki tek satıra binmesin.
   useEffect(() => {
     if (!ref.current) return;
-    const v = value || '';
+    const v = typeof value === 'string' ? value : '';
     const html = /<[a-z][\s\S]*>/i.test(v) ? v : v.replace(/\n/g, '<br>');
     if (ref.current.innerHTML !== html) ref.current.innerHTML = html;
   }, [value]);

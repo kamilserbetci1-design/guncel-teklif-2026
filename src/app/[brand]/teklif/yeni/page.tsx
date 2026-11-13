@@ -219,25 +219,37 @@ export default function YeniTeklifPage() {
     if (!editingProposal || isLoaded) return;
     let cancelled = false;
     (async () => {
-      setProposalNo(editingProposal.proposal_no);
-      setProposalDate(editingProposal.proposal_date);
-      setProjectName(editingProposal.project_name);
-      setCustomerName(editingProposal.customer_name);
-      setCustomerPhone(editingProposal.customer_phone);
-      setCustomerCity(editingProposal.customer_city);
-      setCustomerAddress(editingProposal.customer_address);
-      setPreparedBy(editingProposal.prepared_by);
-      setItems(editingProposal.items || []);
-      setCurrency(editingProposal.currency);
+      setProposalNo(editingProposal.proposal_no || '');
+      setProposalDate(editingProposal.proposal_date || '');
+      setProjectName(editingProposal.project_name || '');
+      setCustomerName(typeof editingProposal.customer_name === 'string' ? editingProposal.customer_name : '');
+      setCustomerPhone(editingProposal.customer_phone || '');
+      setCustomerCity(editingProposal.customer_city || '');
+      setCustomerAddress(editingProposal.customer_address || '');
+      setPreparedBy(editingProposal.prepared_by || '');
+      const rawItems = Array.isArray(editingProposal.items) ? editingProposal.items : [];
+      setItems(rawItems.filter(Boolean).map((item) => ({
+        ...item,
+        id: item.id || `item-${Math.random().toString(36).slice(2, 8)}`,
+        name: item.name == null ? '' : String(item.name),
+        description: typeof item.description === 'string' ? item.description : '',
+        sku: item.sku == null ? '' : String(item.sku),
+        price: Number(item.price) || 0,
+        cost: Number(item.cost) || 0,
+        quantity: Number(item.quantity) || (item.type === 'section' ? 0 : 1),
+        item_discount: Number(item.item_discount) || 0,
+        total: Number.isFinite(Number(item.total)) ? Number(item.total) : (Number(item.price) || 0) * (Number(item.quantity) || 1),
+      })));
+      setCurrency(editingProposal.currency || 'TRY');
       if (editingProposal.discount_type === 'percent' && (editingProposal.discount_percent ?? 0) > 0) {
         setDiscountMode('percent');
         setDiscountValue(editingProposal.discount_percent || 0);
       } else {
         setDiscountMode('amount');
-        setDiscountValue(editingProposal.discount_value);
+        setDiscountValue(Number(editingProposal.discount_value) || 0);
       }
-      setGlobalHidePrices(editingProposal.global_hide_prices);
-      setConditions(editingProposal.conditions);
+      setGlobalHidePrices(!!editingProposal.global_hide_prices);
+      setConditions(typeof editingProposal.conditions === 'string' ? editingProposal.conditions : '');
       setPaidAmount(editingProposal.paid_amount || 0);
       setPaymentType(editingProposal.payment_type || '');
       if (editingProposal.custom_header_name) setCustomHeaderName(editingProposal.custom_header_name);
@@ -2556,7 +2568,7 @@ export default function YeniTeklifPage() {
                           if (nameChanged) return (
                             <button onClick={() => { updateProduct(nameChanged.id, { name: item.name }); }} className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-500 text-white hover:bg-blue-600 transition" title="Ürün adını güncelle">✓ Kaydet</button>
                           );
-                          if (!matchedProduct && item.name.trim()) return (
+                          if (!matchedProduct && String(item.name || '').trim()) return (
                             <button onClick={() => { addProduct({ id: `prod-${Date.now()}-${Math.random().toString(36).substr(2,5)}`, brand_id: brandId, name: item.name, description: item.description || '', sku: item.sku || '', price: parseFloat(String(item.price)) || 0, cost: parseFloat(String(item.cost)) || 0, currency: item.input_currency || 'TRY', category: '', manufacturer: '', image: item.image || '', product_link: item.product_link || '' }); }} className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-bold bg-green-500 text-white hover:bg-green-600 transition" title="Ürünü veritabanına kaydet">✓ Kaydet</button>
                           );
                           return null;

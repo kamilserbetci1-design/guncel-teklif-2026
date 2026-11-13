@@ -350,7 +350,7 @@ export default function TekliflerPage() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-lg font-extrabold text-gray-900 whitespace-nowrap">
-              ₺{p.total.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
+              ₺{Number(p.total || 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 })}
             </span>
             <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
               <button onClick={() => handleStatusChange(p.id, 'sent')} className="p-1.5 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-100 transition" title="Gönderildi"><Send className="w-3.5 h-3.5" /></button>

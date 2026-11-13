@@ -12,7 +12,7 @@ export function isCafeMarktCdnUrl(src: string) {
 
 /** witcdn CafeMarkt dışından CORS kapalı; teklifte crossOrigin=anonymous görseli düşürüyor. */
 export function cafeMarktProxiedImage(src: string) {
-  const raw = (src || '').trim();
+  const raw = String(src || '').trim();
   if (!raw) return '';
   const abs = raw.startsWith('//') ? `https:${raw}` : raw;
   if (/Logo-Animasyon|\.gif(\?|$)|\/Icon\//i.test(abs)) return '';
