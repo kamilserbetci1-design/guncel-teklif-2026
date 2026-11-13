@@ -1230,7 +1230,7 @@ export default function YeniTeklifPage() {
         if (height <= 0 || height >= pageCssHeight - 8) return;
         const pageEnd = (Math.floor(top / pageCssHeight) + 1) * pageCssHeight;
         if (top + height > pageEnd - 2 && top > Math.floor(top / pageCssHeight) * pageCssHeight + 2) {
-          const shift = pageEnd - top + 2;
+          const shift = pageEnd - top + 8;
           const current = parseFloat(node.style.marginTop || '0') || 0;
           node.dataset.pdfPush = String(shift);
           node.style.marginTop = `${current + shift}px`;
@@ -1830,29 +1830,33 @@ export default function YeniTeklifPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-6 text-[10px] text-gray-500 pt-4 mt-4" style={{ borderTop: '1px solid #e5e7eb' }}>
-            <div>
-              <h4 className="font-bold text-gray-900 uppercase mb-1 text-xs">Şartlar ve Koşullar</h4>
-              <div className="leading-relaxed rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(conditions) }} />
-            </div>
-            <div className="text-right">
-              {preparedBy && (
-                <div className="mb-3 pb-2 border-b border-gray-200">
-                  <p className="text-[10px] text-gray-400 uppercase">Teklifi Hazırlayan</p>
-                  <p className="text-xs font-bold text-gray-800">{preparedBy}</p>
-                </div>
-              )}
-              {!isBlankBrand ? (
-                <>
-                  <p className="font-bold text-gray-900 text-sm">{brand.fullName}</p>
-                  <p className="text-[10px]">{brand.slogan}</p>
-                  {brand.qrUrl && <div className="mt-2 flex justify-end"><img src={brand.qrUrl} alt="QR" className="w-12 h-12" crossOrigin="anonymous" /></div>}
-                </>
-              ) : customHeaderName.trim() ? (
-                <p className="font-bold text-gray-900 text-sm">{customHeaderName.trim()}</p>
-              ) : null}
-            </div>
-          </div>
+          <table className="print-keep pdf-row" style={{ width: '100%', borderCollapse: 'collapse', marginTop: '16px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+            <tbody>
+              <tr>
+                <td style={{ width: '58%', verticalAlign: 'top', borderTop: '1px solid #e5e7eb', padding: '16px 24px 0 0', fontSize: '10px', color: '#6b7280', lineHeight: 1.45 }}>
+                  <h4 className="font-bold text-gray-900 uppercase mb-1 text-xs">Şartlar ve Koşullar</h4>
+                  <div className="leading-relaxed rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(conditions) }} />
+                </td>
+                <td style={{ width: '42%', verticalAlign: 'top', textAlign: 'right', borderTop: '1px solid #e5e7eb', padding: '16px 0 0', fontSize: '10px', color: '#6b7280' }}>
+                  {preparedBy && (
+                    <div style={{ marginBottom: '12px', paddingBottom: '8px', borderBottom: '1px solid #e5e7eb' }}>
+                      <p className="text-[10px] text-gray-400 uppercase">Teklifi Hazırlayan</p>
+                      <p className="text-xs font-bold text-gray-800">{preparedBy}</p>
+                    </div>
+                  )}
+                  {!isBlankBrand ? (
+                    <>
+                      <p className="font-bold text-gray-900 text-sm">{brand.fullName}</p>
+                      <p className="text-[10px]">{brand.slogan}</p>
+                      {brand.qrUrl && <div style={{ marginTop: '8px' }}><img src={brand.qrUrl} alt="QR" width={48} height={48} style={{ width: '48px', height: '48px', display: 'inline-block' }} crossOrigin="anonymous" /></div>}
+                    </>
+                  ) : customHeaderName.trim() ? (
+                    <p className="font-bold text-gray-900 text-sm">{customHeaderName.trim()}</p>
+                  ) : null}
+                </td>
+              </tr>
+            </tbody>
+          </table>
 
           {brand.brandLogos.length > 0 && (
             <div className="pt-5 mt-4" style={{ borderTop: '1px solid #e5e7eb' }}>
