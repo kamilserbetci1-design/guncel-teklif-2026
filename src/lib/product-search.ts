@@ -77,15 +77,22 @@ export function compactCode(value: string) {
   return foldSearchText(value).replace(/\s+/g, '');
 }
 
-/** 412.G.GN.150.D.2 / CS-TEZ-3700 / cs.dbn.700 gibi ürün kodu aramaları. */
+/** 412.G.GN.150.D.2 / CS-TEZ-3700 / cs.dbn.700 gibi ürün kodu aramaları. Marka + kapasite ("öztiryakiler 500") kod değildir. */
 export function isSkuLikeQuery(query: string) {
   const compact = (query || '').trim().replace(/\s+/g, '');
   if (compact.length < 5) return false;
   if (/^[A-Za-z0-9]+([.\-\/_][A-Za-z0-9]+)+$/.test(compact) && /[0-9]/.test(compact) && /[A-Za-z]/.test(compact)) {
     return true;
   }
-  const c = compactCode(query);
-  return c.length >= 6 && /[a-z]/.test(c) && /[0-9]/.test(c);
+  const tokens = foldSearchText(query).split(/\s+/).filter(Boolean);
+  const joined = tokens.join('');
+  if (joined.length < 6 || !/[a-z]/.test(joined) || !/[0-9]/.test(joined)) return false;
+  const maxRun = tokens.length === 1 ? 5 : 4;
+  return tokens.every((token) => {
+    if (/^\d+$/.test(token)) return true;
+    const runs = token.match(/[a-z]+/g) || [];
+    return runs.length > 0 && runs.every((run) => run.length <= maxRun);
+  });
 }
 
 function itemSku(item: { sku?: string; code?: string }) {
