@@ -102,8 +102,8 @@ export default function YeniTeklifPage() {
         verticalAlign: 'middle' as const,
         borderBottom: `2px solid ${brand.tableBorderHex}`,
       };
-  const listThumb = isMutproLook ? 88 : 80;
-  const catalogThumb = isMutproLook ? 158 : 144;
+  const listThumb = Math.round((isMutproLook ? 88 : 80) * 1.1);
+  const catalogThumb = Math.round((isMutproLook ? 158 : 144) * 1.1);
   const brandCustomers = customers.filter((c) => c.brand_id === brandId);
 
   const [proposalTitle, setProposalTitle] = useState('FİYAT TEKLİFİ');
@@ -1337,6 +1337,15 @@ export default function YeniTeklifPage() {
       const blocks = Array.from(source.querySelectorAll<HTMLElement>('.pdf-row, .print-keep')).filter(
         (node) => !node.parentElement?.closest('.pdf-row, .print-keep')
       );
+      source.querySelectorAll<HTMLImageElement>('img[data-pdf-photo]').forEach((img) => {
+        const box = Number(img.getAttribute('data-pdf-photo')) || 0;
+        const nw = img.naturalWidth;
+        const nh = img.naturalHeight;
+        if (!box || !nw || !nh) return;
+        const fit = Math.min(box / nw, box / nh);
+        img.setAttribute('data-pdf-fitw', String(Math.max(1, Math.round(nw * fit))));
+        img.setAttribute('data-pdf-fith', String(Math.max(1, Math.round(nh * fit))));
+      });
       blocks.forEach((node) => {
         const rootTop = source.getBoundingClientRect().top;
         const rect = node.getBoundingClientRect();
@@ -1388,12 +1397,29 @@ export default function YeniTeklifPage() {
             }
             const photo = node.getAttribute('data-pdf-photo');
             if (photo) {
-              node.style.width = `${photo}px`;
-              node.style.height = `${photo}px`;
-              node.style.maxWidth = `${photo}px`;
-              node.style.maxHeight = `${photo}px`;
+              const box = Number(photo) || 0;
+              const fitW = Number(node.getAttribute('data-pdf-fitw')) || box;
+              const fitH = Number(node.getAttribute('data-pdf-fith')) || box;
+              node.setAttribute('width', String(fitW));
+              node.setAttribute('height', String(fitH));
+              node.style.width = `${fitW}px`;
+              node.style.height = `${fitH}px`;
+              node.style.maxWidth = `${fitW}px`;
+              node.style.maxHeight = `${fitH}px`;
               node.style.objectFit = 'contain';
               node.style.display = 'block';
+              const frame = node.parentElement;
+              if (frame && box) {
+                frame.style.width = `${box}px`;
+                frame.style.height = `${box}px`;
+                frame.style.maxWidth = `${box}px`;
+                frame.style.maxHeight = `${box}px`;
+                frame.style.overflow = 'hidden';
+                frame.style.display = 'flex';
+                frame.style.alignItems = 'center';
+                frame.style.justifyContent = 'center';
+                frame.style.boxSizing = 'border-box';
+              }
             }
           });
         },
@@ -1767,7 +1793,7 @@ export default function YeniTeklifPage() {
             <table className="w-full text-sm" style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', boxSizing: 'border-box' }}>
               <colgroup>
                 <col style={{ width: isMutproLook ? '52px' : '40px' }} />
-                {!isCompactMode && <col style={{ width: `${(isMutproLook ? listThumb : 80) + 24}px` }} />}
+                {!isCompactMode && <col style={{ width: `${listThumb + 24}px` }} />}
                 <col />
                 <col style={{ width: isMutproLook ? '72px' : '56px' }} />
                 {!globalHidePrices && <col style={{ width: isMutproLook ? '140px' : '128px' }} />}
@@ -1788,7 +1814,7 @@ export default function YeniTeklifPage() {
                   const rowCols = (
                     <colgroup>
                       <col style={{ width: isMutproLook ? '52px' : '40px' }} />
-                      {!isCompactMode && <col style={{ width: `${(isMutproLook ? listThumb : 80) + 24}px` }} />}
+                      {!isCompactMode && <col style={{ width: `${listThumb + 24}px` }} />}
                       <col />
                       <col style={{ width: isMutproLook ? '72px' : '56px' }} />
                       {!globalHidePrices && <col style={{ width: isMutproLook ? '140px' : '128px' }} />}
