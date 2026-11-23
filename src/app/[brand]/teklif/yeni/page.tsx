@@ -162,7 +162,7 @@ export default function YeniTeklifPage() {
   const [newProductCurrency, setNewProductCurrency] = useState<'EUR' | 'TRY' | 'USD' | 'GBP'>('EUR');
   const [priceDetailId, setPriceDetailId] = useState<string | null>(null);
   const [detailForm, setDetailForm] = useState({
-    currency: 'TRY' as 'TRY' | 'EUR' | 'USD' | 'GBP',
+    currency: '' as '' | 'TRY' | 'EUR' | 'USD' | 'GBP',
     sale: '',
     cost: '',
     saleList: '',
@@ -240,18 +240,30 @@ export default function YeniTeklifPage() {
       setCustomerAddress(editingProposal.customer_address || '');
       setPreparedBy(editingProposal.prepared_by || '');
       const rawItems = Array.isArray(editingProposal.items) ? editingProposal.items : [];
-      setItems(rawItems.filter(Boolean).map((item) => ({
-        ...item,
-        id: item.id || `item-${Math.random().toString(36).slice(2, 8)}`,
-        name: item.name == null ? '' : String(item.name),
-        description: typeof item.description === 'string' ? item.description : '',
-        sku: item.sku == null ? '' : String(item.sku),
-        price: Number(item.price) || 0,
-        cost: Number(item.cost) || 0,
-        quantity: Number(item.quantity) || (item.type === 'section' ? 0 : 1),
-        item_discount: Number(item.item_discount) || 0,
-        total: Number.isFinite(Number(item.total)) ? Number(item.total) : (Number(item.price) || 0) * (Number(item.quantity) || 1),
-      })));
+      const quoteCur = normalizeCurrency(editingProposal.currency || 'TRY');
+      setItems(rawItems.filter(Boolean).map((item) => {
+        const price = Number(item.price) || 0;
+        const src = normalizeCurrency(item.input_currency);
+        const rate = Number(item.exchange_rate);
+        const source = item.source_price != null && Number.isFinite(Number(item.source_price))
+          ? Number(item.source_price)
+          : (quoteCur !== 'TRY' && src === quoteCur && rate > 1 && price > 0
+            ? Math.round((price / rate) * 100) / 100
+            : item.source_price);
+        return {
+          ...item,
+          id: item.id || `item-${Math.random().toString(36).slice(2, 8)}`,
+          name: item.name == null ? '' : String(item.name),
+          description: typeof item.description === 'string' ? item.description : '',
+          sku: item.sku == null ? '' : String(item.sku),
+          price,
+          cost: Number(item.cost) || 0,
+          quantity: Number(item.quantity) || (item.type === 'section' ? 0 : 1),
+          item_discount: Number(item.item_discount) || 0,
+          total: Number.isFinite(Number(item.total)) ? Number(item.total) : price * (Number(item.quantity) || 1),
+          source_price: source,
+        };
+      }));
       setCurrency(editingProposal.currency || 'TRY');
       if (editingProposal.discount_type === 'percent' && (editingProposal.discount_percent ?? 0) > 0) {
         setDiscountMode('percent');
@@ -977,21 +989,40 @@ export default function YeniTeklifPage() {
     const rate = code === 'EUR' ? eurRate : code === 'USD' ? usdRate : gbpRate;
     return rate > 0 ? amount * rate : amount;
   };
-  const moneyOut = (code: 'TRY' | 'EUR' | 'USD' | 'GBP', tryAmount: number) => {
-    if (code === 'TRY') return tryAmount;
-    const rate = code === 'EUR' ? eurRate : code === 'USD' ? usdRate : gbpRate;
-    return rate > 0 ? tryAmount / rate : tryAmount;
+  const frozenGross = (item: ProposalItem): number | null => {
+    if (currency === 'TRY') return null;
+    const src = normalizeCurrency(item.input_currency);
+    if (src !== currency || item.source_price == null || !Number.isFinite(Number(item.source_price))) return null;
+    return Number(item.source_price);
   };
-  const roundMoney = (n: number) => String(Math.round((n || 0) * 100) / 100);
+  const quoteUnitNet = (item: ProposalItem) => {
+    const disc = 1 - (Number(item.item_discount) || 0) / 100;
+    const gross = frozenGross(item);
+    if (gross != null) return gross * disc;
+    return convertCurrency((Number(item.price) || 0) * disc);
+  };
+  const quoteLineNet = (item: ProposalItem) => {
+    const qty = Number(item.quantity) || 0;
+    const gross = frozenGross(item);
+    if (gross != null) return gross * (1 - (Number(item.item_discount) || 0) / 100) * qty;
+    return convertCurrency(Number(item.total) || 0);
+  };
+  const viewSubTotal = productItems.reduce((sum, item) => sum + quoteLineNet(item), 0);
+  const viewDiscount = discountMode === 'percent'
+    ? viewSubTotal * Math.min(Math.max(discountValue, 0), 100) / 100
+    : convertCurrency(discountAmount);
+  const viewDiscounted = viewSubTotal - viewDiscount;
+  const viewKdv = showVAT ? viewDiscounted * KDV_RATE : 0;
+  const viewShip = convertCurrency(shippingCost);
+  const viewInstall = (viewDiscounted + viewKdv + viewShip) * (installment > 0 ? installment * 0.03 : 0);
+  const viewFinal = viewDiscounted + viewKdv + viewShip + viewInstall;
+  const viewRemaining = viewFinal - convertCurrency(paidAmount);
 
   const openPriceDetail = (item: ProposalItem) => {
-    const src = ((item.source_price != null ? normalizeCurrency(item.input_currency) : currency) || 'TRY') as 'TRY' | 'EUR' | 'USD' | 'GBP';
-    const sale = src !== 'TRY' && item.source_price != null ? item.source_price : convertCurrency(item.price || 0);
-    const cost = src !== 'TRY' && item.source_cost != null ? item.source_cost : convertCurrency(item.cost || 0);
     setDetailForm({
-      currency: src,
-      sale: roundMoney(sale),
-      cost: roundMoney(cost),
+      currency: '',
+      sale: '',
+      cost: '',
       saleList: '',
       saleDisc: '',
       costList: '',
@@ -1003,7 +1034,7 @@ export default function YeniTeklifPage() {
   };
 
   const savePriceDetail = () => {
-    if (!priceDetailId) return;
+    if (!priceDetailId || !detailForm.currency) return;
     const sale = parseFloat(detailForm.sale) || 0;
     const cost = parseFloat(detailForm.cost) || 0;
     const qty = Math.max(1, parseInt(detailForm.quantity, 10) || 1);
@@ -1095,7 +1126,17 @@ export default function YeniTeklifPage() {
         const newTotal = (Math.round(item.total * 100) + share) / 100;
         const factor = (1 - (Number(item.item_discount) || 0) / 100) * (item.quantity || 1);
         const newPrice = factor > 0 ? newTotal / factor : 0;
-        return { ...item, price: newPrice, total: newTotal };
+        const src = normalizeCurrency(item.input_currency);
+        const lineRate = Number(item.exchange_rate) > 1
+          ? Number(item.exchange_rate)
+          : (currency === 'EUR' ? eurRate : currency === 'USD' ? usdRate : currency === 'GBP' ? gbpRate : 1);
+        const keepSource = currency !== 'TRY' && src === currency && lineRate > 0;
+        return {
+          ...item,
+          price: newPrice,
+          total: newTotal,
+          source_price: keepSource ? Math.round((newPrice / lineRate) * 100) / 100 : item.source_price,
+        };
       })
     );
     setRoundTarget('');
@@ -1492,36 +1533,36 @@ export default function YeniTeklifPage() {
                 <tbody>
                   <tr>
                     <td style={{ padding: '3px 16px 3px 0', color: '#4b5563' }}>Ara Toplam (KDV Hariç):</td>
-                    <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600, color: isMutproLook ? mutNavy : undefined }}>{formatCurrency(convertCurrency(subTotal), sym)}</td>
+                    <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600, color: isMutproLook ? mutNavy : undefined }}>{formatCurrency(viewSubTotal, sym)}</td>
                   </tr>
                   {discountAmount > 0 && (
                     <tr style={{ color: '#dc2626' }}>
                       <td style={{ padding: '3px 16px 3px 0' }}>İndirim{discountMode === 'percent' ? ` (%${discountValue})` : ''}:</td>
-                      <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap' }}>-{formatCurrency(convertCurrency(discountAmount), sym)}</td>
+                      <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap' }}>-{formatCurrency(viewDiscount, sym)}</td>
                     </tr>
                   )}
                   {discountAmount > 0 && (
                     <tr>
                       <td style={{ padding: '6px 16px 3px 0', borderTop: '1px solid #e5e7eb', color: '#4b5563' }}>İndirimli Toplam:</td>
-                      <td style={{ padding: '6px 0 3px', borderTop: '1px solid #e5e7eb', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>{formatCurrency(convertCurrency(discountedSubTotal), sym)}</td>
+                      <td style={{ padding: '6px 0 3px', borderTop: '1px solid #e5e7eb', textAlign: 'right', whiteSpace: 'nowrap', fontWeight: 600 }}>{formatCurrency(viewDiscounted, sym)}</td>
                     </tr>
                   )}
                   {showVAT && (
                     <tr>
                       <td style={{ padding: '3px 16px 3px 0', color: '#4b5563' }}>KDV (%20):</td>
-                      <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap', color: isMutproLook ? mutNavy : undefined }}>{formatCurrency(convertCurrency(kdvTotal), sym)}</td>
+                      <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap', color: isMutproLook ? mutNavy : undefined }}>{formatCurrency(viewKdv, sym)}</td>
                     </tr>
                   )}
                   {shippingCost > 0 && (
                     <tr>
                       <td style={{ padding: '3px 16px 3px 0', color: '#4b5563' }}>Kargo / Taşıma Bedeli:</td>
-                      <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap', color: isMutproLook ? mutNavy : undefined }}>{formatCurrency(convertCurrency(shippingCost), sym)}</td>
+                      <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap', color: isMutproLook ? mutNavy : undefined }}>{formatCurrency(viewShip, sym)}</td>
                     </tr>
                   )}
                   {installment > 0 && (
                     <tr style={{ color: '#ea580c' }}>
                       <td style={{ padding: '3px 16px 3px 0' }}>Taksit Farkı ({installment} taksit, %{installment * 3}):</td>
-                      <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap' }}>+{formatCurrency(convertCurrency(installmentExtra), sym)}</td>
+                      <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap' }}>+{formatCurrency(viewInstall, sym)}</td>
                     </tr>
                   )}
                   <tr aria-hidden>
@@ -1529,10 +1570,10 @@ export default function YeniTeklifPage() {
                   </tr>
                   <tr style={{ color: isMutproLook ? mutNavy : undefined }}>
                     <td style={{ padding: '12px 16px 3px 0', fontSize: '18px', fontWeight: 800 }}>GENEL TOPLAM:</td>
-                    <td style={{ padding: '12px 0 3px', textAlign: 'right', whiteSpace: 'nowrap', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(convertCurrency(finalTotal), sym)}</td>
+                    <td style={{ padding: '12px 0 3px', textAlign: 'right', whiteSpace: 'nowrap', fontSize: '18px', fontWeight: 800 }}>{formatCurrency(viewFinal, sym)}</td>
                   </tr>
                   <tr>
-                    <td colSpan={2} style={{ padding: '2px 0 0', textAlign: 'right', fontSize: '12px', fontStyle: 'italic', color: '#6b7280' }}>{numberToText(convertCurrency(finalTotal), currency)}</td>
+                    <td colSpan={2} style={{ padding: '2px 0 0', textAlign: 'right', fontSize: '12px', fontStyle: 'italic', color: '#6b7280' }}>{numberToText(viewFinal, currency)}</td>
                   </tr>
                   {totalEquivalents.length > 0 && (
                     <tr>
@@ -1555,7 +1596,7 @@ export default function YeniTeklifPage() {
                   {paidAmount > 0 && (
                     <tr style={{ color: remainingAmount > 0.009 ? '#ea580c' : '#047857', fontWeight: 700 }}>
                       <td style={{ padding: '3px 16px 3px 0' }}>Kalan:</td>
-                      <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(convertCurrency(Math.max(0, remainingAmount)), sym)}</td>
+                      <td style={{ padding: '3px 0', textAlign: 'right', whiteSpace: 'nowrap' }}>{formatCurrency(Math.max(0, viewRemaining), sym)}</td>
                     </tr>
                   )}
                 </tbody>
@@ -1793,8 +1834,8 @@ export default function YeniTeklifPage() {
                         {item.description && <div className="text-xs text-gray-500 mt-1 rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(item.description) }} />}
                       </td>
                       <td className={`${isMutproLook ? '' : 'py-5 px-3'} text-center font-semibold text-sm`} style={{ ...(mutCellPad || {}), ...(isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : {}) }}>{item.quantity}</td>
-                      {!isHidden && <td className={`${isMutproLook ? '' : 'py-5 px-3'} text-right font-bold text-sm`} style={{ ...(mutCellPad || {}), ...(isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : {}) }}>{formatCurrency(convertCurrency(netUnitPrice), sym)}</td>}
-                      {!isHidden && <td className={`${isMutproLook ? '' : 'py-5 px-3'} text-right font-bold text-sm`} style={{ ...(mutCellPad || {}), ...(isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : {}) }}>{formatCurrency(convertCurrency(netLineTotal), sym)}</td>}
+                      {!isHidden && <td className={`${isMutproLook ? '' : 'py-5 px-3'} text-right font-bold text-sm`} style={{ ...(mutCellPad || {}), ...(isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : {}) }}>{formatCurrency(quoteUnitNet(item), sym)}</td>}
+                      {!isHidden && <td className={`${isMutproLook ? '' : 'py-5 px-3'} text-right font-bold text-sm`} style={{ ...(mutCellPad || {}), ...(isMutproLook ? { color: mutNavy, fontVariantNumeric: 'tabular-nums' } : {}) }}>{formatCurrency(quoteLineNet(item), sym)}</td>}
                       {isHidden && !globalHidePrices && <td className="py-3 px-2 text-center text-gray-400" style={mutCellPad}>-</td>}
                       {isHidden && !globalHidePrices && <td className="py-3 px-2 text-center text-gray-400" style={mutCellPad}>-</td>}
                     </tr>
@@ -1830,8 +1871,8 @@ export default function YeniTeklifPage() {
                       {item.sku && <div className="text-[11px] text-gray-400 mt-1">Ürün Kodu: {item.sku}</div>}
                       {item.description && <div className="text-xs text-gray-500 mt-2 rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(item.description) }} />}
                       <div style={{ marginTop: 'auto', paddingTop: '14px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '16px', borderTop: `1px solid ${mutHair}` }}>
-                        <span className="text-sm text-gray-500" style={{ fontVariantNumeric: 'tabular-nums' }}>{item.quantity} Adet{!isHidden ? ` × ${formatCurrency(convertCurrency(netUnitPrice), sym)}` : ''}</span>
-                        {!isHidden && <span className="text-lg font-extrabold" style={{ color: mutNavy, fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(convertCurrency(netLineTotal), sym)}</span>}
+                        <span className="text-sm text-gray-500" style={{ fontVariantNumeric: 'tabular-nums' }}>{item.quantity} Adet{!isHidden ? ` × ${formatCurrency(quoteUnitNet(item), sym)}` : ''}</span>
+                        {!isHidden && <span className="text-lg font-extrabold" style={{ color: mutNavy, fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(quoteLineNet(item), sym)}</span>}
                       </div>
                     </div>
                   </div>
@@ -1864,8 +1905,8 @@ export default function YeniTeklifPage() {
                       {item.sku && <div className="text-xs text-gray-400 mt-0.5">Ürün Kodu: {item.sku}</div>}
                       {item.description && <div className="text-sm text-gray-500 mt-1 rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(item.description) }} />}
                       <div className="mt-3 flex items-baseline gap-2">
-                        <span className="text-sm text-gray-500">{item.quantity} Adet x {!isHidden ? formatCurrency(convertCurrency(netUnitPrice), sym) : '-'}</span>
-                        {!isHidden && <span className="text-lg font-extrabold ml-auto" style={{ color: isMutproLook ? mutNavy : undefined }}>{formatCurrency(convertCurrency(netLineTotal), sym)}</span>}
+                        <span className="text-sm text-gray-500">{item.quantity} Adet x {!isHidden ? formatCurrency(quoteUnitNet(item), sym) : '-'}</span>
+                        {!isHidden && <span className="text-lg font-extrabold ml-auto" style={{ color: isMutproLook ? mutNavy : undefined }}>{formatCurrency(quoteLineNet(item), sym)}</span>}
                       </div>
                     </div>
                   </div>
@@ -2615,8 +2656,8 @@ export default function YeniTeklifPage() {
                 }
                 pIdx++;
                 const netUnitPrice = item.price * (1 - item.item_discount / 100);
-                const displayUnitPrice = convertCurrency(netUnitPrice);
-                const displayLineTotal = convertCurrency(item.total);
+                const displayUnitPrice = frozenGross(item) != null ? quoteUnitNet(item) : convertCurrency(netUnitPrice);
+                const displayLineTotal = quoteLineNet(item);
                 const itemProfit = (item.price - item.cost) * item.quantity * (1 - item.item_discount / 100);
                 const itemProfitPercent = item.price > 0 ? ((item.price - item.cost) / item.price) * 100 : 0;
                 return (
@@ -2676,13 +2717,24 @@ export default function YeniTeklifPage() {
                           value={Math.round(displayUnitPrice * 100) / 100}
                           onChange={(e) => {
                             const displayVal = parseFloat(e.target.value) || 0;
-                            // Dövizden TL'ye çevir → dahili fiyatı TL olarak kaydet
-                            const tryVal = currency === 'TRY' ? displayVal
-                              : currency === 'EUR' ? displayVal * eurRate
-                              : currency === 'USD' ? displayVal * usdRate
-                              : currency === 'GBP' ? displayVal * gbpRate
-                              : displayVal;
-                            updateItem(item.id, 'price', tryVal.toFixed(2));
+                            const rate = currency === 'EUR' ? eurRate : currency === 'USD' ? usdRate : currency === 'GBP' ? gbpRate : 1;
+                            const disc = 1 - (Number(item.item_discount) || 0) / 100;
+                            const gross = currency === 'TRY' ? displayVal : (disc > 0 ? displayVal / disc : displayVal);
+                            const tryVal = currency === 'TRY' ? gross : gross * (rate || 1);
+                            setItems((prev) => prev.map((row) => {
+                              if (row.id !== item.id) return row;
+                              const price = Math.round(tryVal * 100) / 100;
+                              const d = Number(row.item_discount) || 0;
+                              const q = Number(row.quantity) || 1;
+                              return {
+                                ...row,
+                                price,
+                                total: price * (1 - d / 100) * q,
+                                ...(currency === 'TRY'
+                                  ? { source_price: undefined }
+                                  : { input_currency: currency, exchange_rate: rate, source_price: Math.round(gross * 100) / 100 }),
+                              };
+                            }));
                           }}
                           className="w-28 text-right text-base font-bold text-gray-800 bg-transparent border-b-2 border-transparent hover:border-gray-300 focus:border-blue-500 outline-none transition"
                         />
@@ -2753,7 +2805,7 @@ export default function YeniTeklifPage() {
             </button>
             {showProfitPanel && (
               <div className="px-5 pb-5 space-y-2 text-sm border-t border-orange-200">
-                <div className="flex justify-between pt-3"><span className="text-gray-600">Satış Toplamı:</span><span className="font-semibold">{formatCurrency(convertCurrency(discountedSubTotal), sym)}</span></div>
+                <div className="flex justify-between pt-3"><span className="text-gray-600">Satış Toplamı:</span><span className="font-semibold">{formatCurrency(viewDiscounted, sym)}</span></div>
                 <div className="flex justify-between"><span className="text-gray-600">Maliyet:</span><span className="font-semibold">{formatCurrency(convertCurrency(totalCost), sym)}</span></div>
                 <div className="border-t border-orange-200 pt-2 flex justify-between bg-orange-100 p-2 rounded">
                   <span className="font-bold text-orange-900">Net Kâr:</span>
@@ -2766,7 +2818,7 @@ export default function YeniTeklifPage() {
 
           {/* Totals Box */}
           <div className="w-full max-w-xs space-y-3">
-            <div className="flex justify-between text-sm text-gray-600"><span>Ara Toplam:</span><span className="font-semibold">{formatCurrency(convertCurrency(subTotal), sym)}</span></div>
+            <div className="flex justify-between text-sm text-gray-600"><span>Ara Toplam:</span><span className="font-semibold">{formatCurrency(viewSubTotal, sym)}</span></div>
             <div className="flex justify-between text-sm items-center">
               <span className="text-gray-600">Genel İskonto:</span>
               <div className="flex items-center gap-1.5">
@@ -2800,16 +2852,16 @@ export default function YeniTeklifPage() {
                   }}
                   className="w-16 text-right border-b border-gray-300 outline-none bg-transparent text-sm font-semibold"
                 />
-                <span className="text-red-500 font-semibold text-sm">-{formatCurrency(convertCurrency(discountAmount), sym)}</span>
+                <span className="text-red-500 font-semibold text-sm">-{formatCurrency(viewDiscount, sym)}</span>
               </div>
             </div>
-            {discountAmount > 0 && <div className="flex justify-between text-sm border-t border-dashed pt-2"><span className="text-gray-600">İndirimli Ara Toplam:</span><span className="font-semibold">{formatCurrency(convertCurrency(discountedSubTotal), sym)}</span></div>}
+            {discountAmount > 0 && <div className="flex justify-between text-sm border-t border-dashed pt-2"><span className="text-gray-600">İndirimli Ara Toplam:</span><span className="font-semibold">{formatCurrency(viewDiscounted, sym)}</span></div>}
             <div className="flex justify-between text-sm items-center">
               <span className="text-gray-600">KDV (%20):</span>
               <div className="flex items-center gap-2">
                 <button onClick={() => setShowVAT(true)} className={`px-2 py-0.5 rounded text-xs font-bold transition ${showVAT ? 'bg-green-600 text-white' : 'bg-gray-200 text-gray-500'}`}>Göster</button>
                 <button onClick={() => setShowVAT(false)} className={`px-2 py-0.5 rounded text-xs font-bold transition ${!showVAT ? 'bg-red-600 text-white' : 'bg-gray-200 text-gray-500'}`}>Gizle</button>
-                <span className="font-semibold">{formatCurrency(convertCurrency(kdvTotal), sym)}</span>
+                <span className="font-semibold">{formatCurrency(viewKdv, sym)}</span>
               </div>
             </div>
             <div className="flex justify-between text-sm items-center">
@@ -2829,7 +2881,7 @@ export default function YeniTeklifPage() {
             {installment > 0 && (
               <div className="flex justify-between text-sm text-orange-600 items-center">
                 <span>Taksit Farkı ({installment} taksit, %{installment * 3}):</span>
-                <span className="font-semibold">+{formatCurrency(convertCurrency(installmentExtra), sym)}</span>
+                <span className="font-semibold">+{formatCurrency(viewInstall, sym)}</span>
               </div>
             )}
             <div className="flex justify-between text-sm items-center">
@@ -2841,7 +2893,7 @@ export default function YeniTeklifPage() {
                   value={roundTarget}
                   onChange={(e) => setRoundTarget(e.target.value)}
                   onKeyDown={(e) => { if (e.key === 'Enter') applyRoundedTotal(); }}
-                  placeholder={Math.round(convertCurrency(finalTotal)).toLocaleString('tr-TR')}
+                  placeholder={Math.round(viewFinal).toLocaleString('tr-TR')}
                   className="w-28 text-right border-b border-gray-300 outline-none bg-transparent text-sm font-semibold"
                 />
                 <button
@@ -2854,8 +2906,8 @@ export default function YeniTeklifPage() {
               </div>
             </div>
             <p className="text-[10px] text-gray-400 text-right -mt-1">Fark ürünlere eşit dağılır (indirim veya artış).</p>
-            <div className="flex justify-between text-xl font-extrabold text-gray-900 border-t-2 border-gray-800 pt-3 mt-2"><span>GENEL TOPLAM:</span><span>{formatCurrency(convertCurrency(finalTotal), sym)}</span></div>
-            <div className="text-right text-xs text-gray-500 italic">{numberToText(convertCurrency(finalTotal), currency)}</div>
+            <div className="flex justify-between text-xl font-extrabold text-gray-900 border-t-2 border-gray-800 pt-3 mt-2"><span>GENEL TOPLAM:</span><span>{formatCurrency(viewFinal, sym)}</span></div>
+            <div className="text-right text-xs text-gray-500 italic">{numberToText(viewFinal, currency)}</div>
             <div className="flex justify-between text-sm items-center pt-2">
               <span className="text-gray-600">Ödenen Tutar ({currency}):</span>
               <div className="flex items-center gap-1">
@@ -2885,7 +2937,7 @@ export default function YeniTeklifPage() {
             </div>
             <div className={`flex justify-between text-sm font-bold ${remainingAmount > 0.009 ? 'text-orange-600' : 'text-emerald-700'}`}>
               <span>Kalan:</span>
-              <span>{formatCurrency(convertCurrency(Math.max(0, remainingAmount)), sym)}</span>
+              <span>{formatCurrency(Math.max(0, viewRemaining), sym)}</span>
             </div>
           </div>
         </div>
@@ -3178,13 +3230,14 @@ export default function YeniTeklifPage() {
       {priceDetailId && (() => {
         const line = items.find((i) => i.id === priceDetailId);
         if (!line) return null;
-        const symD = getCurrencySymbol(detailForm.currency);
+        const picked = detailForm.currency;
+        const symD = picked ? getCurrencySymbol(picked) : '';
         const saleN = parseFloat(detailForm.sale) || 0;
         const costN = parseFloat(detailForm.cost) || 0;
         const qtyN = Math.max(1, parseInt(detailForm.quantity, 10) || 1);
         const discN = Math.min(100, Math.max(0, parseFloat(detailForm.lineDisc) || 0));
-        const saleTry = moneyIn(detailForm.currency, saleN);
-        const costTry = moneyIn(detailForm.currency, costN);
+        const saleTry = picked ? moneyIn(picked, saleN) : 0;
+        const costTry = picked ? moneyIn(picked, costN) : 0;
         const profitTry = (saleTry - costTry) * qtyN * (1 - discN / 100);
         const margin = saleTry > 0 ? ((saleTry - costTry) / saleTry) * 100 : 0;
         const applyList = (kind: 'sale' | 'cost', listRaw: string, discRaw: string) => {
@@ -3208,25 +3261,13 @@ export default function YeniTeklifPage() {
               <div className="px-5 py-4 overflow-auto">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Para Birimi</label>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">Fiyatın para birimi</label>
                     <select
                       value={detailForm.currency}
-                      onChange={(e) => {
-                        const next = e.target.value as 'TRY' | 'EUR' | 'USD' | 'GBP';
-                        const from = detailForm.currency;
-                        setDetailForm((f) => ({
-                          ...f,
-                          currency: next,
-                          sale: roundMoney(moneyOut(next, moneyIn(from, parseFloat(f.sale) || 0))),
-                          cost: roundMoney(moneyOut(next, moneyIn(from, parseFloat(f.cost) || 0))),
-                          saleList: '',
-                          saleDisc: '',
-                          costList: '',
-                          costDisc: '',
-                        }));
-                      }}
+                      onChange={(e) => setDetailForm((f) => ({ ...f, currency: e.target.value as '' | 'TRY' | 'EUR' | 'USD' | 'GBP' }))}
                       className="w-full p-2 border border-gray-300 rounded-lg text-sm font-bold"
                     >
+                      <option value="">Seçiniz</option>
                       <option value="TRY">₺ TRY</option>
                       <option value="EUR">€ EUR</option>
                       <option value="USD">$ USD</option>
@@ -3238,8 +3279,8 @@ export default function YeniTeklifPage() {
                     <input type="number" min={1} value={detailForm.quantity} onChange={(e) => setDetailForm((f) => ({ ...f, quantity: e.target.value }))} className="w-full p-2 border border-gray-300 rounded-lg text-sm" />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Satış ({symD})</label>
-                    <input type="number" value={detailForm.sale} onChange={(e) => setDetailForm((f) => ({ ...f, sale: e.target.value, saleList: '', saleDisc: '' }))} className="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="0" />
+                    <label className="block text-xs font-bold text-gray-500 mb-1">Satış{symD ? ` (${symD})` : ''}</label>
+                    <input type="number" value={detailForm.sale} disabled={!picked} onChange={(e) => setDetailForm((f) => ({ ...f, sale: e.target.value, saleList: '', saleDisc: '' }))} className="w-full p-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-50" placeholder={picked ? '0' : 'Önce para birimi seç'} />
                     <div className="flex gap-1 mt-1 items-center">
                       <input type="number" value={detailForm.saleList} onChange={(e) => applyList('sale', e.target.value, detailForm.saleDisc)} className="flex-1 p-1.5 border border-blue-200 rounded text-xs bg-blue-50" placeholder="Liste fiyatı" />
                       <input type="number" value={detailForm.saleDisc} onChange={(e) => applyList('sale', detailForm.saleList, e.target.value)} className="w-16 p-1.5 border border-blue-200 rounded text-xs bg-blue-50 text-center" placeholder="%" />
@@ -3247,8 +3288,8 @@ export default function YeniTeklifPage() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-500 mb-1">Alış Maliyeti ({symD})</label>
-                    <input type="number" value={detailForm.cost} onChange={(e) => setDetailForm((f) => ({ ...f, cost: e.target.value, costList: '', costDisc: '' }))} className="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="0" />
+                    <label className="block text-xs font-bold text-gray-500 mb-1">Alış Maliyeti{symD ? ` (${symD})` : ''}</label>
+                    <input type="number" value={detailForm.cost} disabled={!picked} onChange={(e) => setDetailForm((f) => ({ ...f, cost: e.target.value, costList: '', costDisc: '' }))} className="w-full p-2 border border-gray-300 rounded-lg text-sm disabled:bg-gray-50" placeholder={picked ? '0' : 'Önce para birimi seç'} />
                     <div className="flex gap-1 mt-1 items-center">
                       <input type="number" value={detailForm.costList} onChange={(e) => applyList('cost', e.target.value, detailForm.costDisc)} className="flex-1 p-1.5 border border-orange-200 rounded text-xs bg-orange-50" placeholder="Liste fiyatı" />
                       <input type="number" value={detailForm.costDisc} onChange={(e) => applyList('cost', detailForm.costList, e.target.value)} className="w-16 p-1.5 border border-orange-200 rounded text-xs bg-orange-50 text-center" placeholder="%" />
@@ -3261,14 +3302,14 @@ export default function YeniTeklifPage() {
                   </div>
                 </div>
                 <div className="mt-4 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 space-y-1">
-                  <div className="flex justify-between"><span>Satış TL</span><span className="font-bold text-gray-900">₺{saleTry.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span></div>
-                  <div className="flex justify-between"><span>Alış TL</span><span className="font-bold text-gray-900">₺{costTry.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span></div>
-                  <div className="flex justify-between"><span>Kâr</span><span className={`font-bold ${profitTry >= 0 ? 'text-green-700' : 'text-red-600'}`}>₺{profitTry.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} · %{margin.toFixed(0)}</span></div>
+                  <div className="flex justify-between"><span>Satış TL</span><span className="font-bold text-gray-900">₺{saleTry.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                  <div className="flex justify-between"><span>Alış TL</span><span className="font-bold text-gray-900">₺{costTry.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
+                  <div className="flex justify-between"><span>Kâr</span><span className={`font-bold ${profitTry >= 0 ? 'text-green-700' : 'text-red-600'}`}>₺{profitTry.toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · %{margin.toFixed(0)}</span></div>
                 </div>
               </div>
               <div className="px-5 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2 shrink-0">
                 <button onClick={() => setPriceDetailId(null)} className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100">Vazgeç</button>
-                <button onClick={savePriceDetail} className="px-4 py-2 rounded-lg text-sm font-bold text-white bg-green-600 hover:bg-green-700">Satıra Yaz</button>
+                <button onClick={savePriceDetail} disabled={!picked} className="px-4 py-2 rounded-lg text-sm font-bold text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-300">Satıra Yaz</button>
               </div>
             </div>
           </div>
