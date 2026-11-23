@@ -162,7 +162,7 @@ export default function YeniTeklifPage() {
   const [newProductCurrency, setNewProductCurrency] = useState<'EUR' | 'TRY' | 'USD' | 'GBP'>('EUR');
   const [priceDetailId, setPriceDetailId] = useState<string | null>(null);
   const [detailForm, setDetailForm] = useState({
-    currency: '' as '' | 'TRY' | 'EUR' | 'USD' | 'GBP',
+    currency: 'EUR' as '' | 'TRY' | 'EUR' | 'USD' | 'GBP',
     sale: '',
     cost: '',
     saleList: '',
@@ -1020,7 +1020,7 @@ export default function YeniTeklifPage() {
 
   const openPriceDetail = (item: ProposalItem) => {
     setDetailForm({
-      currency: '',
+      currency: 'EUR',
       sale: '',
       cost: '',
       saleList: '',
