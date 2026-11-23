@@ -160,6 +160,18 @@ export default function YeniTeklifPage() {
   const [newCostList, setNewCostList] = useState(''); // liste fiyatı (maliyet için)
   const [newCostDiscount, setNewCostDiscount] = useState(''); // iskonto % (maliyet için)
   const [newProductCurrency, setNewProductCurrency] = useState<'EUR' | 'TRY' | 'USD' | 'GBP'>('EUR');
+  const [priceDetailId, setPriceDetailId] = useState<string | null>(null);
+  const [detailForm, setDetailForm] = useState({
+    currency: 'TRY' as 'TRY' | 'EUR' | 'USD' | 'GBP',
+    sale: '',
+    cost: '',
+    saleList: '',
+    saleDisc: '',
+    costList: '',
+    costDisc: '',
+    quantity: '1',
+    lineDisc: '0',
+  });
 
   // Livesearch state for product name input
   const [nameSuggestions, setNameSuggestions] = useState<typeof brandProducts>([]);
@@ -958,6 +970,56 @@ export default function YeniTeklifPage() {
     if (currency === 'EUR') return amount * eurRate;
     if (currency === 'GBP') return amount * gbpRate;
     return amount;
+  };
+
+  const moneyIn = (code: 'TRY' | 'EUR' | 'USD' | 'GBP', amount: number) => {
+    if (code === 'TRY') return amount;
+    const rate = code === 'EUR' ? eurRate : code === 'USD' ? usdRate : gbpRate;
+    return rate > 0 ? amount * rate : amount;
+  };
+  const moneyOut = (code: 'TRY' | 'EUR' | 'USD' | 'GBP', tryAmount: number) => {
+    if (code === 'TRY') return tryAmount;
+    const rate = code === 'EUR' ? eurRate : code === 'USD' ? usdRate : gbpRate;
+    return rate > 0 ? tryAmount / rate : tryAmount;
+  };
+  const roundMoney = (n: number) => String(Math.round((n || 0) * 100) / 100);
+
+  const openPriceDetail = (item: ProposalItem) => {
+    const src = ((item.source_price != null ? normalizeCurrency(item.input_currency) : currency) || 'TRY') as 'TRY' | 'EUR' | 'USD' | 'GBP';
+    const sale = src !== 'TRY' && item.source_price != null ? item.source_price : convertCurrency(item.price || 0);
+    const cost = src !== 'TRY' && item.source_cost != null ? item.source_cost : convertCurrency(item.cost || 0);
+    setDetailForm({
+      currency: src,
+      sale: roundMoney(sale),
+      cost: roundMoney(cost),
+      saleList: '',
+      saleDisc: '',
+      costList: '',
+      costDisc: '',
+      quantity: String(item.quantity || 1),
+      lineDisc: String(item.item_discount || 0),
+    });
+    setPriceDetailId(item.id);
+  };
+
+  const savePriceDetail = () => {
+    if (!priceDetailId) return;
+    const sale = parseFloat(detailForm.sale) || 0;
+    const cost = parseFloat(detailForm.cost) || 0;
+    const qty = Math.max(1, parseInt(detailForm.quantity, 10) || 1);
+    const disc = Math.min(100, Math.max(0, parseFloat(detailForm.lineDisc) || 0));
+    const fx = catalogQuoteFields(sale, cost, detailForm.currency);
+    setItems((prev) => prev.map((item) => {
+      if (item.id !== priceDetailId) return item;
+      return {
+        ...item,
+        ...fx,
+        quantity: qty,
+        item_discount: disc,
+        total: fx.price * (1 - disc / 100) * qty,
+      };
+    }));
+    setPriceDetailId(null);
   };
 
   const totalEquivalents = (
@@ -2651,6 +2713,9 @@ export default function YeniTeklifPage() {
                           updateItem(item.id, 'cost', tryCost.toFixed(2));
                         }} className="w-20 text-center text-xs bg-white border border-gray-200 rounded px-1 py-0.5 mt-0.5" placeholder="0" />
                       </div>
+                      <button type="button" onClick={() => openPriceDetail(item)} className="mt-1.5 w-full text-[10px] font-bold text-orange-800 bg-orange-100 hover:bg-orange-200 rounded px-1.5 py-1">
+                        Detaylı Fiyat
+                      </button>
                     </td>
                     <td className="py-3 px-2 text-right font-bold text-gray-800">{formatCurrency(displayLineTotal, sym)}</td>
                     <td className="py-3 px-2">
@@ -3109,6 +3174,106 @@ export default function YeniTeklifPage() {
           </div>
         </div>
       )}
+
+      {priceDetailId && (() => {
+        const line = items.find((i) => i.id === priceDetailId);
+        if (!line) return null;
+        const symD = getCurrencySymbol(detailForm.currency);
+        const saleN = parseFloat(detailForm.sale) || 0;
+        const costN = parseFloat(detailForm.cost) || 0;
+        const qtyN = Math.max(1, parseInt(detailForm.quantity, 10) || 1);
+        const discN = Math.min(100, Math.max(0, parseFloat(detailForm.lineDisc) || 0));
+        const saleTry = moneyIn(detailForm.currency, saleN);
+        const costTry = moneyIn(detailForm.currency, costN);
+        const profitTry = (saleTry - costTry) * qtyN * (1 - discN / 100);
+        const margin = saleTry > 0 ? ((saleTry - costTry) / saleTry) * 100 : 0;
+        const applyList = (kind: 'sale' | 'cost', listRaw: string, discRaw: string) => {
+          const l = parseFloat(listRaw) || 0;
+          const d = parseFloat(discRaw) || 0;
+          const next = l > 0 ? (l * (1 - d / 100)).toFixed(2) : '';
+          if (kind === 'sale') setDetailForm((f) => ({ ...f, saleList: listRaw, saleDisc: discRaw, sale: next }));
+          else setDetailForm((f) => ({ ...f, costList: listRaw, costDisc: discRaw, cost: next }));
+        };
+        return (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+            <div className="absolute inset-0 bg-black/50" onClick={() => setPriceDetailId(null)} />
+            <div className="relative bg-white w-full max-w-xl rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 bg-gray-50 shrink-0">
+                <div className="min-w-0">
+                  <h3 className="font-extrabold text-gray-900">Detaylı Fiyat</h3>
+                  <p className="text-xs text-gray-500 truncate">{line.name}</p>
+                </div>
+                <button onClick={() => setPriceDetailId(null)} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400"><X className="w-5 h-5" /></button>
+              </div>
+              <div className="px-5 py-4 overflow-auto">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">Para Birimi</label>
+                    <select
+                      value={detailForm.currency}
+                      onChange={(e) => {
+                        const next = e.target.value as 'TRY' | 'EUR' | 'USD' | 'GBP';
+                        const from = detailForm.currency;
+                        setDetailForm((f) => ({
+                          ...f,
+                          currency: next,
+                          sale: roundMoney(moneyOut(next, moneyIn(from, parseFloat(f.sale) || 0))),
+                          cost: roundMoney(moneyOut(next, moneyIn(from, parseFloat(f.cost) || 0))),
+                          saleList: '',
+                          saleDisc: '',
+                          costList: '',
+                          costDisc: '',
+                        }));
+                      }}
+                      className="w-full p-2 border border-gray-300 rounded-lg text-sm font-bold"
+                    >
+                      <option value="TRY">₺ TRY</option>
+                      <option value="EUR">€ EUR</option>
+                      <option value="USD">$ USD</option>
+                      <option value="GBP">£ GBP</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">Adet</label>
+                    <input type="number" min={1} value={detailForm.quantity} onChange={(e) => setDetailForm((f) => ({ ...f, quantity: e.target.value }))} className="w-full p-2 border border-gray-300 rounded-lg text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">Satış ({symD})</label>
+                    <input type="number" value={detailForm.sale} onChange={(e) => setDetailForm((f) => ({ ...f, sale: e.target.value, saleList: '', saleDisc: '' }))} className="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="0" />
+                    <div className="flex gap-1 mt-1 items-center">
+                      <input type="number" value={detailForm.saleList} onChange={(e) => applyList('sale', e.target.value, detailForm.saleDisc)} className="flex-1 p-1.5 border border-blue-200 rounded text-xs bg-blue-50" placeholder="Liste fiyatı" />
+                      <input type="number" value={detailForm.saleDisc} onChange={(e) => applyList('sale', detailForm.saleList, e.target.value)} className="w-16 p-1.5 border border-blue-200 rounded text-xs bg-blue-50 text-center" placeholder="%" />
+                      <span className="text-xs text-blue-500 font-bold">%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">Alış Maliyeti ({symD})</label>
+                    <input type="number" value={detailForm.cost} onChange={(e) => setDetailForm((f) => ({ ...f, cost: e.target.value, costList: '', costDisc: '' }))} className="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="0" />
+                    <div className="flex gap-1 mt-1 items-center">
+                      <input type="number" value={detailForm.costList} onChange={(e) => applyList('cost', e.target.value, detailForm.costDisc)} className="flex-1 p-1.5 border border-orange-200 rounded text-xs bg-orange-50" placeholder="Liste fiyatı" />
+                      <input type="number" value={detailForm.costDisc} onChange={(e) => applyList('cost', detailForm.costList, e.target.value)} className="w-16 p-1.5 border border-orange-200 rounded text-xs bg-orange-50 text-center" placeholder="%" />
+                      <span className="text-xs text-orange-500 font-bold">%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">Satır İndirimi %</label>
+                    <input type="number" value={detailForm.lineDisc} onChange={(e) => setDetailForm((f) => ({ ...f, lineDisc: e.target.value }))} className="w-full p-2 border border-gray-300 rounded-lg text-sm" placeholder="0" />
+                  </div>
+                </div>
+                <div className="mt-4 rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 space-y-1">
+                  <div className="flex justify-between"><span>Satış TL</span><span className="font-bold text-gray-900">₺{saleTry.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span></div>
+                  <div className="flex justify-between"><span>Alış TL</span><span className="font-bold text-gray-900">₺{costTry.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}</span></div>
+                  <div className="flex justify-between"><span>Kâr</span><span className={`font-bold ${profitTry >= 0 ? 'text-green-700' : 'text-red-600'}`}>₺{profitTry.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} · %{margin.toFixed(0)}</span></div>
+                </div>
+              </div>
+              <div className="px-5 py-4 border-t border-gray-100 bg-gray-50 flex justify-end gap-2 shrink-0">
+                <button onClick={() => setPriceDetailId(null)} className="px-4 py-2 rounded-lg text-sm font-bold text-gray-600 hover:bg-gray-100">Vazgeç</button>
+                <button onClick={savePriceDetail} className="px-4 py-2 rounded-lg text-sm font-bold text-white bg-green-600 hover:bg-green-700">Satıra Yaz</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
