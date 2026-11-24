@@ -1134,14 +1134,19 @@ export default function YeniTeklifPage() {
     const deltaCents = desiredSubCents - currentSubCents;
     if (deltaCents === 0) return;
 
-    const n = productLines.length;
-    const baseShare = Math.trunc(deltaCents / n);
-    let leftover = deltaCents - baseShare * n;
+    const weightSum = productLines.reduce((sum, item) => sum + Math.max(0, Math.round(item.total * 100)), 0);
+    if (weightSum <= 0) {
+      alert('Ürün tutarları sıfır olduğu için yüzde dağıtılamıyor.');
+      return;
+    }
+    let allocated = 0;
     const shareById: Record<string, number> = {};
-    productLines.forEach((item) => {
-      const extra = leftover !== 0 ? Math.sign(leftover) : 0;
-      leftover -= extra;
-      shareById[item.id] = baseShare + extra;
+    productLines.forEach((item, index) => {
+      const weight = Math.max(0, Math.round(item.total * 100));
+      const isLast = index === productLines.length - 1;
+      const share = isLast ? deltaCents - allocated : Math.round(deltaCents * (weight / weightSum));
+      allocated += share;
+      shareById[item.id] = share;
     });
 
     setItems((prev) =>
@@ -1150,17 +1155,14 @@ export default function YeniTeklifPage() {
         if (share == null) return item;
         const newTotal = (Math.round(item.total * 100) + share) / 100;
         const factor = (1 - (Number(item.item_discount) || 0) / 100) * (item.quantity || 1);
+        const oldPrice = Number(item.price) || 0;
         const newPrice = factor > 0 ? newTotal / factor : 0;
-        const src = normalizeCurrency(item.input_currency);
-        const lineRate = Number(item.exchange_rate) > 1
-          ? Number(item.exchange_rate)
-          : (currency === 'EUR' ? eurRate : currency === 'USD' ? usdRate : currency === 'GBP' ? gbpRate : 1);
-        const keepSource = currency !== 'TRY' && src === currency && lineRate > 0;
+        const ratio = oldPrice > 0 ? newPrice / oldPrice : 1;
         return {
           ...item,
           price: newPrice,
           total: newTotal,
-          source_price: keepSource ? Math.round((newPrice / lineRate) * 100) / 100 : item.source_price,
+          source_price: item.source_price != null ? Math.round(Number(item.source_price) * ratio * 100) / 100 : item.source_price,
         };
       })
     );
@@ -1359,9 +1361,6 @@ export default function YeniTeklifPage() {
       window.scrollTo(0, 0);
       const width = source.offsetWidth;
       const pageCssHeight = width * (279 / 194);
-      const blocks = Array.from(source.querySelectorAll<HTMLElement>('.pdf-row, .print-keep')).filter(
-        (node) => !node.parentElement?.closest('.pdf-row, .print-keep')
-      );
       source.querySelectorAll<HTMLImageElement>('img[data-pdf-photo]').forEach((img) => {
         const box = Number(img.getAttribute('data-pdf-photo')) || 0;
         const nw = img.naturalWidth;
@@ -1371,21 +1370,30 @@ export default function YeniTeklifPage() {
         img.setAttribute('data-pdf-fitw', String(Math.max(1, Math.round(nw * fit))));
         img.setAttribute('data-pdf-fith', String(Math.max(1, Math.round(nh * fit))));
       });
-      blocks.forEach((node) => {
-        const rootTop = source.getBoundingClientRect().top;
-        const rect = node.getBoundingClientRect();
-        const top = rect.top - rootTop;
-        const height = rect.height;
-        if (height <= 0 || height >= pageCssHeight - 8) return;
-        const pageEnd = (Math.floor(top / pageCssHeight) + 1) * pageCssHeight;
-        if (top + height > pageEnd - 2 && top > Math.floor(top / pageCssHeight) * pageCssHeight + 2) {
-          const shift = pageEnd - top + 8;
-          const current = parseFloat(node.style.marginTop || '0') || 0;
-          node.dataset.pdfPush = String(shift);
-          node.style.marginTop = `${current + shift}px`;
-          pushed.push(node);
-        }
-      });
+      const pushClearOfPageEnd = () => {
+        const blocks = Array.from(source.querySelectorAll<HTMLElement>('.pdf-row, .print-keep')).filter(
+          (node) => !node.parentElement?.closest('.pdf-row, .print-keep')
+        );
+        blocks.forEach((node) => {
+          const rootTop = source.getBoundingClientRect().top;
+          const rect = node.getBoundingClientRect();
+          const top = rect.top - rootTop;
+          const height = rect.height;
+          if (height <= 0 || height >= pageCssHeight - 24) return;
+          const pageStart = Math.floor(top / pageCssHeight) * pageCssHeight;
+          const pageEnd = pageStart + pageCssHeight;
+          if (top + height > pageEnd - 24 && top > pageStart + 4) {
+            const shift = pageEnd - top + 24;
+            const current = parseFloat(node.style.marginTop || '0') || 0;
+            const already = Number(node.dataset.pdfPush || 0);
+            node.dataset.pdfPush = String(already + shift);
+            node.style.marginTop = `${current + shift}px`;
+            if (!pushed.includes(node)) pushed.push(node);
+          }
+        });
+      };
+      pushClearOfPageEnd();
+      pushClearOfPageEnd();
       const canvas = await html2canvas(source, {
         scale: 2,
         useCORS: true,
@@ -1617,7 +1625,7 @@ export default function YeniTeklifPage() {
                     </tr>
                   )}
                   <tr aria-hidden>
-                    <td colSpan={2} style={{ height: '10px', padding: 0, borderBottom: '2px solid #1f2937', lineHeight: 0, fontSize: 0 }} />
+                    <td colSpan={2} style={{ height: '16px', padding: 0, borderBottom: '2px solid #1f2937', lineHeight: '16px', fontSize: '12px', color: 'transparent' }}>.</td>
                   </tr>
                   <tr style={{ color: isMutproLook ? mutNavy : undefined }}>
                     <td style={{ padding: '12px 16px 3px 0', fontSize: '18px', fontWeight: 800 }}>GENEL TOPLAM:</td>
@@ -1899,7 +1907,7 @@ export default function YeniTeklifPage() {
 
           {/* Katalog — MutPro: ürün önde, numara görselde */}
           {items.length > 0 && viewMode === 'katalog' && isMutproLook && (
-            <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <div style={{ width: '100%' }}>
               {(() => { let pIdx = 0; return items.map((item) => {
                 if (item.type === 'section') {
                   return (
@@ -1912,21 +1920,29 @@ export default function YeniTeklifPage() {
                 const isHidden = globalHidePrices || item.hide_price;
                 const no = String(pIdx).padStart(2, '0');
                 return (
-                  <div key={item.id} className={`print-keep ${item.shipped ? 'opacity-50 line-through' : ''}`} style={{ width: '100%', display: 'grid', gridTemplateColumns: `${catalogThumb + 28}px 1fr`, alignItems: 'stretch', borderRadius: '6px', overflow: 'hidden', boxSizing: 'border-box', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                    <div style={{ position: 'relative', backgroundColor: '#fff', minHeight: `${catalogThumb}px`, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '14px', borderRight: `1px solid ${mutRowLine}` }}>
-                      {item.image ? <img src={cafeMarktProxiedImage(item.image)} alt="" data-pdf-photo={catalogThumb} width={catalogThumb} height={catalogThumb} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ width: `${catalogThumb}px`, height: `${catalogThumb}px`, objectFit: 'contain', display: 'block' }} /> : null}
-                      <div style={{ position: 'absolute', left: 10, bottom: 10, backgroundColor: mutNavy, color: '#fff', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', fontVariantNumeric: 'tabular-nums', padding: '3px 7px', borderRadius: '4px' }}>{no}</div>
-                    </div>
-                    <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', backgroundColor: mutCream, padding: '14px 16px' }}>
-                      <div className="font-bold text-base" style={{ color: mutNavy, lineHeight: 1.35 }}>{item.name}</div>
-                      {item.sku && <div className="text-[11px] text-gray-400 mt-1">Ürün Kodu: {item.sku}</div>}
-                      {item.description && <div className="text-xs text-gray-500 mt-2 rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(item.description) }} />}
-                      <div style={{ marginTop: 'auto', paddingTop: '14px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '16px', borderTop: `1px solid ${mutHair}` }}>
-                        <span className="text-sm text-gray-500" style={{ fontVariantNumeric: 'tabular-nums' }}>{item.quantity} Adet{!isHidden ? ` × ${formatCurrency(quoteUnitNet(item), sym)}` : ''}</span>
-                        {!isHidden && <span className="text-lg font-extrabold" style={{ color: mutNavy, fontVariantNumeric: 'tabular-nums' }}>{formatCurrency(quoteLineNet(item), sym)}</span>}
-                      </div>
-                    </div>
-                  </div>
+                  <table key={item.id} className={`pdf-row print-keep ${item.shipped ? 'opacity-50 line-through' : ''}`} style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, marginBottom: '10px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                    <tbody>
+                      <tr>
+                        <td style={{ width: `${catalogThumb + 28}px`, verticalAlign: 'middle', textAlign: 'center', backgroundColor: '#fff', borderRight: `1px solid ${mutRowLine}`, padding: '14px', position: 'relative' }}>
+                          {item.image ? <img src={cafeMarktProxiedImage(item.image)} alt="" data-pdf-photo={catalogThumb} width={catalogThumb} height={catalogThumb} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ width: `${catalogThumb}px`, height: `${catalogThumb}px`, objectFit: 'contain', display: 'inline-block' }} /> : <div style={{ width: `${catalogThumb}px`, height: `${catalogThumb}px` }} />}
+                          <div style={{ position: 'absolute', left: 10, bottom: 10, backgroundColor: mutNavy, color: '#fff', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', fontVariantNumeric: 'tabular-nums', padding: '3px 7px', borderRadius: '4px' }}>{no}</div>
+                        </td>
+                        <td style={{ verticalAlign: 'top', backgroundColor: mutCream, padding: '14px 16px' }}>
+                          <div className="font-bold text-base" style={{ color: mutNavy, lineHeight: 1.35 }}>{item.name}</div>
+                          {item.sku && <div className="text-[11px] text-gray-400 mt-1">Ürün Kodu: {item.sku}</div>}
+                          {item.description && <div className="text-xs text-gray-500 mt-2 rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(item.description) }} />}
+                          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '14px', borderTop: `1px solid ${mutHair}` }}>
+                            <tbody>
+                              <tr>
+                                <td style={{ paddingTop: '14px', fontSize: '14px', color: '#6b7280', fontVariantNumeric: 'tabular-nums' }}>{item.quantity} Adet{!isHidden ? ` × ${formatCurrency(quoteUnitNet(item), sym)}` : ''}</td>
+                                {!isHidden && <td style={{ paddingTop: '14px', textAlign: 'right', fontSize: '18px', fontWeight: 800, color: mutNavy, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{formatCurrency(quoteLineNet(item), sym)}</td>}
+                              </tr>
+                            </tbody>
+                          </table>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
                 );
               }); })()}
             </div>
@@ -1946,7 +1962,7 @@ export default function YeniTeklifPage() {
                 const netLineTotal = item.total;
                 const isHidden = globalHidePrices || item.hide_price;
                 return (
-                  <div key={item.id} className={`flex gap-5 p-4 ${isMutproLook ? '' : 'rounded-xl border'} ${item.shipped ? 'opacity-50 line-through' : ''}`} style={{ border: isMutproLook ? `1px solid ${mutHair}` : undefined, borderRadius: isMutproLook ? '8px' : undefined, borderColor: isMutproLook ? mutHair : brand.tableBorderHex, pageBreakInside: 'avoid' }}>
+                  <div key={item.id} className={`pdf-row print-keep flex gap-5 p-4 ${isMutproLook ? '' : 'rounded-xl border'} ${item.shipped ? 'opacity-50 line-through' : ''}`} style={{ border: isMutproLook ? `1px solid ${mutHair}` : undefined, borderRadius: isMutproLook ? '8px' : undefined, borderColor: isMutproLook ? mutHair : brand.tableBorderHex, pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                     <div style={{ width: `${catalogThumb}px`, height: `${catalogThumb}px`, flexShrink: 0, border: isMutproLook ? `1px solid ${mutHair}` : '1px solid #e5e7eb', borderRadius: isMutproLook ? '6px' : '8px', backgroundColor: '#fff', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       {item.image ? <img src={cafeMarktProxiedImage(item.image)} data-pdf-photo={catalogThumb} width={catalogThumb} height={catalogThumb} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ width: `${catalogThumb}px`, height: `${catalogThumb}px`, objectFit: 'contain', display: 'block' }} /> : <div style={{ width: '100%', height: '100%', backgroundColor: '#f3f4f6' }} />}
                     </div>
@@ -1968,15 +1984,17 @@ export default function YeniTeklifPage() {
 
           <div style={{ marginTop: 20, paddingTop: 4 }}>
           {!globalHidePrices && (
-            <table className="pdf-row print-keep" style={{ width: '24rem', maxWidth: '100%', marginLeft: 'auto', borderCollapse: 'collapse', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-              <tbody>
-                <tr>
-                  <td style={{ padding: 0, pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                    {previewTotalsInner}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <div className="pdf-row print-keep" style={{ display: 'flex', justifyContent: 'flex-end', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+              <table style={{ width: '24rem', maxWidth: '100%', borderCollapse: 'collapse' }}>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: 0 }}>
+                      {previewTotalsInner}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           )}
 
           {showIban && (
@@ -2956,7 +2974,7 @@ export default function YeniTeklifPage() {
                 </button>
               </div>
             </div>
-            <p className="text-[10px] text-gray-400 text-right -mt-1">Fark ürünlere eşit dağılır (indirim veya artış).</p>
+            <p className="text-[10px] text-gray-400 text-right -mt-1">Fark, her ürünün tutarına göre yüzdeyle dağılır.</p>
             <div className="flex justify-between text-xl font-extrabold text-gray-900 border-t-2 border-gray-800 pt-3 mt-2"><span>GENEL TOPLAM:</span><span>{formatCurrency(viewFinal, sym)}</span></div>
             <div className="text-right text-xs text-gray-500 italic">{numberToText(viewFinal, currency)}</div>
             <div className="flex justify-between text-sm items-center pt-2">
