@@ -1018,15 +1018,36 @@ export default function YeniTeklifPage() {
   const viewFinal = viewDiscounted + viewKdv + viewShip + viewInstall;
   const viewRemaining = viewFinal - convertCurrency(paidAmount);
 
+  const moneyText = (n: number) => String(Math.round((Number(n) || 0) * 100) / 100);
+
   const openPriceDetail = (item: ProposalItem) => {
+    const codes = ['TRY', 'EUR', 'USD', 'GBP'] as const;
+    const src = normalizeCurrency(item.input_currency);
+    const hasForeignSource = item.source_price != null && Number.isFinite(Number(item.source_price)) && src !== 'TRY' && (codes as readonly string[]).includes(src);
+    const quoteCode = (codes as readonly string[]).includes(currency) ? currency as typeof codes[number] : 'TRY';
+    const hasRowAmount = (Number(item.price) || 0) > 0 || (Number(item.cost) || 0) > 0;
+    let code: typeof codes[number] = 'EUR';
+    let sale = '';
+    let cost = '';
+    if (hasForeignSource) {
+      code = src as typeof codes[number];
+      sale = moneyText(Number(item.source_price));
+      cost = moneyText(item.source_cost != null ? Number(item.source_cost) : 0);
+    } else if (hasRowAmount) {
+      code = quoteCode;
+      const unit = quoteCode === 'TRY' ? Number(item.price) || 0 : convertCurrency(Number(item.price) || 0);
+      const unitCost = quoteCode === 'TRY' ? Number(item.cost) || 0 : convertCurrency(Number(item.cost) || 0);
+      sale = moneyText(unit);
+      cost = moneyText(unitCost);
+    }
     setDetailForm({
-      currency: 'EUR',
-      sale: '',
-      cost: '',
-      saleList: '',
-      saleDisc: '',
-      costList: '',
-      costDisc: '',
+      currency: code,
+      sale,
+      cost,
+      saleList: item.price_list || '',
+      saleDisc: item.price_list_discount || '',
+      costList: item.cost_list || '',
+      costDisc: item.cost_list_discount || '',
       quantity: String(item.quantity || 1),
       lineDisc: String(item.item_discount || 0),
     });
@@ -1048,6 +1069,10 @@ export default function YeniTeklifPage() {
         quantity: qty,
         item_discount: disc,
         total: fx.price * (1 - disc / 100) * qty,
+        price_list: detailForm.saleList,
+        price_list_discount: detailForm.saleDisc,
+        cost_list: detailForm.costList,
+        cost_list_discount: detailForm.costDisc,
       };
     }));
     setPriceDetailId(null);
@@ -3290,7 +3315,28 @@ export default function YeniTeklifPage() {
                     <label className="block text-xs font-bold text-gray-500 mb-1">Fiyatın para birimi</label>
                     <select
                       value={detailForm.currency}
-                      onChange={(e) => setDetailForm((f) => ({ ...f, currency: e.target.value as '' | 'TRY' | 'EUR' | 'USD' | 'GBP' }))}
+                      onChange={(e) => {
+                        const next = e.target.value as '' | 'TRY' | 'EUR' | 'USD' | 'GBP';
+                        setDetailForm((f) => {
+                          if (!next || !f.currency || next === f.currency) return { ...f, currency: next };
+                          const out = (amount: number) => {
+                            const asTry = moneyIn(f.currency as 'TRY' | 'EUR' | 'USD' | 'GBP', amount);
+                            if (next === 'TRY') return asTry;
+                            const rate = next === 'EUR' ? eurRate : next === 'USD' ? usdRate : gbpRate;
+                            return rate > 0 ? asTry / rate : asTry;
+                          };
+                          return {
+                            ...f,
+                            currency: next,
+                            sale: moneyText(out(parseFloat(f.sale) || 0)),
+                            cost: moneyText(out(parseFloat(f.cost) || 0)),
+                            saleList: '',
+                            saleDisc: '',
+                            costList: '',
+                            costDisc: '',
+                          };
+                        });
+                      }}
                       className="w-full p-2 border border-gray-300 rounded-lg text-sm font-bold"
                     >
                       <option value="">Seçiniz</option>

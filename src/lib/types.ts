@@ -45,6 +45,10 @@ export interface ProposalItem {
   exchange_rate: number;
   source_price?: number;
   source_cost?: number;
+  price_list?: string;
+  price_list_discount?: string;
+  cost_list?: string;
+  cost_list_discount?: string;
   hide_price: boolean;
   shipped: boolean;
   type?: 'section' | 'product';
