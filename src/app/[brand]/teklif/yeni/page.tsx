@@ -1441,7 +1441,8 @@ export default function YeniTeklifPage() {
               node.style.maxHeight = `${fitH}px`;
               node.style.objectFit = 'contain';
               node.style.display = 'block';
-              const frame = node.parentElement;
+              const closestFrame = node.closest('.pdf-photo-frame') as HTMLElement | null;
+              const frame = closestFrame || (node.parentElement && node.parentElement.tagName !== 'TD' ? node.parentElement : null);
               if (frame && box) {
                 frame.style.width = `${box}px`;
                 frame.style.height = `${box}px`;
@@ -1453,6 +1454,18 @@ export default function YeniTeklifPage() {
                 frame.style.justifyContent = 'center';
                 frame.style.boxSizing = 'border-box';
               }
+            }
+          });
+          doc.querySelectorAll<HTMLTableElement>('table.pdf-catalog').forEach((table) => {
+            const col = table.querySelector('col');
+            const colW = col ? parseFloat(col.style.width || '0') : 0;
+            table.style.tableLayout = 'fixed';
+            table.style.width = '100%';
+            const cell = table.querySelector('td');
+            if (cell && colW) {
+              (cell as HTMLElement).style.width = `${colW}px`;
+              (cell as HTMLElement).style.maxWidth = `${colW}px`;
+              (cell as HTMLElement).style.overflow = 'hidden';
             }
           });
         },
@@ -1919,26 +1932,29 @@ export default function YeniTeklifPage() {
                 const netLineTotal = item.total;
                 const isHidden = globalHidePrices || item.hide_price;
                 const no = String(pIdx).padStart(2, '0');
+                const photoCol = catalogThumb + 28;
                 return (
-                  <table key={item.id} className={`pdf-row print-keep ${item.shipped ? 'opacity-50 line-through' : ''}`} style={{ width: '100%', borderCollapse: 'separate', borderSpacing: 0, marginBottom: '10px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                  <table key={item.id} className={`pdf-catalog pdf-row print-keep ${item.shipped ? 'opacity-50 line-through' : ''}`} style={{ width: '100%', tableLayout: 'fixed', borderCollapse: 'collapse', marginBottom: '10px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                    <colgroup>
+                      <col style={{ width: `${photoCol}px` }} />
+                      <col />
+                    </colgroup>
                     <tbody>
                       <tr>
-                        <td style={{ width: `${catalogThumb + 28}px`, verticalAlign: 'middle', textAlign: 'center', backgroundColor: '#fff', borderRight: `1px solid ${mutRowLine}`, padding: '14px', position: 'relative' }}>
-                          {item.image ? <img src={cafeMarktProxiedImage(item.image)} alt="" data-pdf-photo={catalogThumb} width={catalogThumb} height={catalogThumb} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ width: `${catalogThumb}px`, height: `${catalogThumb}px`, objectFit: 'contain', display: 'inline-block' }} /> : <div style={{ width: `${catalogThumb}px`, height: `${catalogThumb}px` }} />}
-                          <div style={{ position: 'absolute', left: 10, bottom: 10, backgroundColor: mutNavy, color: '#fff', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', fontVariantNumeric: 'tabular-nums', padding: '3px 7px', borderRadius: '4px' }}>{no}</div>
+                        <td style={{ width: `${photoCol}px`, verticalAlign: 'middle', textAlign: 'center', backgroundColor: '#fff', borderRight: `1px solid ${mutRowLine}`, padding: '14px' }}>
+                          <div className="pdf-photo-frame" style={{ position: 'relative', width: `${catalogThumb}px`, height: `${catalogThumb}px`, margin: '0 auto', overflow: 'hidden' }}>
+                            {item.image ? <img src={cafeMarktProxiedImage(item.image)} alt="" data-pdf-photo={catalogThumb} width={catalogThumb} height={catalogThumb} crossOrigin="anonymous" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ width: `${catalogThumb}px`, height: `${catalogThumb}px`, maxWidth: `${catalogThumb}px`, maxHeight: `${catalogThumb}px`, objectFit: 'contain', display: 'block' }} /> : null}
+                            <div style={{ position: 'absolute', left: 0, bottom: 0, backgroundColor: mutNavy, color: '#fff', fontSize: '10px', fontWeight: 700, letterSpacing: '0.08em', fontVariantNumeric: 'tabular-nums', padding: '3px 7px', borderRadius: '4px' }}>{no}</div>
+                          </div>
                         </td>
-                        <td style={{ verticalAlign: 'top', backgroundColor: mutCream, padding: '14px 16px' }}>
+                        <td style={{ verticalAlign: 'middle', backgroundColor: mutCream, padding: '14px 16px' }}>
                           <div className="font-bold text-base" style={{ color: mutNavy, lineHeight: 1.35 }}>{item.name}</div>
                           {item.sku && <div className="text-[11px] text-gray-400 mt-1">Ürün Kodu: {item.sku}</div>}
                           {item.description && <div className="text-xs text-gray-500 mt-2 rich-content" dangerouslySetInnerHTML={{ __html: renderRichHtml(item.description) }} />}
-                          <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '14px', borderTop: `1px solid ${mutHair}` }}>
-                            <tbody>
-                              <tr>
-                                <td style={{ paddingTop: '14px', fontSize: '14px', color: '#6b7280', fontVariantNumeric: 'tabular-nums' }}>{item.quantity} Adet{!isHidden ? ` × ${formatCurrency(quoteUnitNet(item), sym)}` : ''}</td>
-                                {!isHidden && <td style={{ paddingTop: '14px', textAlign: 'right', fontSize: '18px', fontWeight: 800, color: mutNavy, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>{formatCurrency(quoteLineNet(item), sym)}</td>}
-                              </tr>
-                            </tbody>
-                          </table>
+                          <div style={{ marginTop: '14px', paddingTop: '14px', borderTop: `1px solid ${mutHair}`, fontSize: '14px', color: '#6b7280', fontVariantNumeric: 'tabular-nums' }}>
+                            {item.quantity} Adet{!isHidden ? ` × ${formatCurrency(quoteUnitNet(item), sym)}` : ''}
+                            {!isHidden && <span style={{ float: 'right', fontSize: '18px', fontWeight: 800, color: mutNavy }}>{formatCurrency(quoteLineNet(item), sym)}</span>}
+                          </div>
                         </td>
                       </tr>
                     </tbody>
