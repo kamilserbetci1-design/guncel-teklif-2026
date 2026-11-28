@@ -17,8 +17,9 @@ import type { ImportPick } from '@/components/ListImportModal';
 import {
   Plus, Trash2, Copy, GripVertical, Eye, EyeOff, Truck, Save, FileDown,
   Printer, ArrowLeft, Search, Users, ChevronDown, RefreshCw, Package, UserCheck, AlertCircle, Boxes, X,
-  List, LayoutGrid, ImagePlus, Type, StickyNote, ChevronUp, Check, FileSpreadsheet, Upload, Globe, PenLine
+  List, LayoutGrid, ImagePlus, Type, StickyNote, ChevronUp, Check, FileSpreadsheet, Upload, Globe, PenLine, ClipboardList
 } from 'lucide-react';
+import { openSevkIrsaliyesi, itemsFromProposal } from '@/lib/sevk-irsaliyesi';
 import { mergeRegisteredWithWebsite, ensureWebsiteNetPrice } from '@/lib/guclu-mutfak-catalog';
 import { cafeMarktProxiedImage } from '@/lib/cafemarkt-catalog';
 import { rankProducts, foldedIncludes, foldSearchText } from '@/lib/product-search';
@@ -1332,6 +1333,27 @@ export default function YeniTeklifPage() {
     router.push(`/${brandId}/kargo-etiket`);
   };
 
+  /** Teklifteki ürünlerden tek tuşla sevk irsaliyesi açar */
+  const createSevkIrsaliyesi = () => {
+    const productItems = itemsFromProposal(items);
+    if (productItems.length === 0) {
+      alert('Sevk irsaliyesi için teklifte en az bir ürün olmalı.');
+      return;
+    }
+    openSevkIrsaliyesi({
+      brand,
+      belgeNo: `SI-${proposalNo}`,
+      teklifNo: proposalNo,
+      projectName: projectName.trim(),
+      customerName: stripHtml(customerName),
+      customerAddress: customerAddress || '',
+      customerCity: customerCity || '',
+      customerPhone: customerPhone || '',
+      items: productItems,
+      orderDate: proposalDate,
+    });
+  };
+
   const [excelBusy, setExcelBusy] = useState(false);
 
   // Yeni teklifte: girilen ad/telefon mevcut müşteriyle eşleşirse öneri göster
@@ -1705,6 +1727,7 @@ export default function YeniTeklifPage() {
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
               <button onClick={handlePrint} className="h-8 px-2.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 bg-gray-800 text-white hover:bg-gray-900 transition"><Printer className="w-3.5 h-3.5" /> Yazdır</button>
+              <button onClick={createSevkIrsaliyesi} className="h-8 px-2.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 bg-rose-700 text-white hover:bg-rose-800 transition" title="Teklifteki ürünlerden sevk irsaliyesi"><ClipboardList className="w-3.5 h-3.5" /> Sevk İrsaliyesi</button>
               <button onClick={handleDownloadPDF} disabled={!isFormValid} className={`h-8 px-2.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition ${isFormValid ? 'bg-red-600 text-white hover:bg-red-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}><FileDown className="w-3.5 h-3.5" /> PDF</button>
               <button onClick={handleDownloadExcel} disabled={!isFormValid || excelBusy} className={`h-8 px-2.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition ${isFormValid && !excelBusy ? 'bg-emerald-600 text-white hover:bg-emerald-700' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`} title="Müşteriye gönderilebilir, düzenlenebilir Excel"><FileSpreadsheet className="w-3.5 h-3.5" /> {excelBusy ? '…' : 'Excel'}</button>
               <button onClick={handleDownloadJSON} className="h-8 px-2.5 rounded-lg text-xs font-bold inline-flex items-center gap-1 bg-orange-500 text-white hover:bg-orange-600 transition"><FileDown className="w-3.5 h-3.5" /> JSON</button>
@@ -2123,6 +2146,7 @@ export default function YeniTeklifPage() {
         </div>
         <div className="flex gap-2 w-full sm:w-auto flex-wrap [&>button]:flex-1 sm:[&>button]:flex-none [&>button]:justify-center">
           <button onClick={createLabel} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-purple-700"><Truck className="w-4 h-4" /> Etiket Oluştur</button>
+          <button onClick={createSevkIrsaliyesi} className="bg-rose-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-rose-800" title="Teklifteki ürünlerden sevk irsaliyesi oluştur"><ClipboardList className="w-4 h-4" /> Sevk İrsaliyesi</button>
           <button onClick={() => setIsPrintMode(true)} className="bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-gray-900"><Eye className="w-4 h-4" /> Önizle</button>
           <button onClick={handleDownloadJSON} className="bg-orange-500 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:bg-orange-600"><FileDown className="w-4 h-4" /> JSON</button>
           {editId && (

@@ -31,6 +31,10 @@ export interface BrandConfig {
   proposalHeaderText: string;
   logoDark?: string;
   buttonColorHex: string;
+  /** Sevk irsaliyesi / resmi belgelerde görünen unvan */
+  legalName?: string;
+  taxOffice?: string;
+  taxNumber?: string;
 }
 
 export const BRANDS: Record<string, BrandConfig> = {
@@ -133,8 +137,8 @@ export const BRANDS: Record<string, BrandConfig> = {
     sidebarBg: 'bg-red-700',
     accentColor: '#b91c1c',
     address: [
-      'Bahçeşehir 1. Kısım, Doğa Parkı Cad M Blok',
-      '13-15MD Başakşehir/İstanbul',
+      'Bahçeşehir 1. Kısım Mah. Doğa Parkı Cad. M Blok No: 13-15MD',
+      'Başakşehir / İstanbul',
     ],
     phone: '0532 219 21 60',
     email: 'info@inoksendustriyel.com',
@@ -153,6 +157,9 @@ export const BRANDS: Record<string, BrandConfig> = {
     proposalHeaderBg: '#b91c1c',
     proposalHeaderText: '#ffffff',
     buttonColorHex: '#b91c1c',
+    legalName: 'GÜÇLÜ İNOKS ENDÜSTRİYEL MUTFAK SANAYİ VE TİCARET LİMİTED ŞİRKETİ',
+    taxOffice: 'Başakşehir',
+    taxNumber: '4121247468',
   },
   markasiz: {
     id: 'markasiz',
