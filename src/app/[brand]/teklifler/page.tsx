@@ -4,7 +4,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAppStore } from '@/lib/store';
 import { getBrand } from '@/lib/brands';
 import { formatCurrency, getCurrencySymbol } from '@/lib/helpers';
-import { Search, Trash2, Clock, CheckCircle, XCircle, Eye, Send, Upload, UserCheck, Calendar, FileText, Copy, FileDown, ChevronDown } from 'lucide-react';
+import { Search, Trash2, Clock, CheckCircle, XCircle, Eye, Send, Upload, UserCheck, Calendar, FileText, Copy, FileDown, ChevronDown, ClipboardList } from 'lucide-react';
 import { groupProposalsByRevision, proposalRevision } from '@/lib/proposal-revisions';
 import { supabase, isSupabaseConfigured } from '@/lib/supabase';
 import { useState, useRef } from 'react';
@@ -13,6 +13,7 @@ import { STATUS_LABELS, STATUS_COLORS } from '@/lib/types';
 import Link from 'next/link';
 import { stripHtml } from '@/components/RichEditor';
 import { foldedIncludes } from '@/lib/product-search';
+import { openSevkIrsaliyesi, sevkInputFromProposal } from '@/lib/sevk-irsaliyesi';
 
 export default function TekliflerPage() {
   const params = useParams();
@@ -360,6 +361,13 @@ export default function TekliflerPage() {
               {p.pdf_url && (
                 <a href={p.pdf_url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="p-1.5 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-100 transition" title="PDF İndir"><FileDown className="w-3.5 h-3.5" /></a>
               )}
+              <button
+                onClick={() => openSevkIrsaliyesi(sevkInputFromProposal(brand, p, stripHtml))}
+                className="p-1.5 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 transition"
+                title="Sevk İrsaliyesi"
+              >
+                <ClipboardList className="w-3.5 h-3.5" />
+              </button>
               <button onClick={() => duplicateProposal(p)} className="p-1.5 rounded-lg bg-purple-50 text-purple-500 hover:bg-purple-100 transition" title="Çoğalt"><Copy className="w-3.5 h-3.5" /></button>
               <button onClick={() => handleDelete(p.id)} className="p-1.5 rounded-lg bg-gray-50 text-gray-400 hover:bg-red-50 hover:text-red-500 transition" title="Sil"><Trash2 className="w-3.5 h-3.5" /></button>
             </div>
